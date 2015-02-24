@@ -40,33 +40,32 @@ var checkSyncRegistration = function(registration){
 }
 
 // Function to be called Asynchronously to resolve registrations
-var resolveRegistrations = function(){
+var resolveRegistrations = function(connectionType){
+    //Update the connection
+    networkStatus = connectionType;
     
     var hasAnythingSynced = false;
 
-    SyncManager.updateNetworkStatus();
-    
     for(var i = 0; i < SyncRegistrations.length; i++){
 	if (checkSyncRegistration(SyncRegistrations[i])) {
 	    SyncRegistrations[i].resolve();
 	    hasAnythingSynced = true;
 	    if (SyncRegistrations[i].minPeriod != 0){
 		SyncRegistrations[i].promise = new Promise(function(resolve, reject){
-		    SyncRegistrations[i].resolve = resolve;
-		});
+		SyncRegistrations[i].resolve = resolve;
+	    });
 		SyncRegistrations[i].hasBeenExecuted = true;
 		SyncRegistrations[i].time = (new Date()).getTime();
 	    } else {
-		// If this registration has been resolved and will not repeat, then remove it
-		SyncRegistrations.splice(i, 1);
+	    // If this registration has been resolved and will not repeat, then remove it
+	    SyncRegistrations.splice(i, 1);
 	    }
 	}
-    };
+    }
 
     //For completionType: 0 = NewData, 1 = NoData, 2 = Failed
     var completionType = 0;
     return exec(null, null, "BackgroundSync", "setContentAvailable", [completionType]);
-
 }
 
 var SyncManager = {
@@ -76,7 +75,7 @@ var SyncManager = {
     },
     updateNetworkStatus: function(){
 	//TODO: Add hostname as parameter for getNetworkStatus to ensure connection
-	exec(connectionCallback, null, "BackgroundSync", "getNetworkStatus", []);
+	exec(resolveRegistrations, null, "BackgroundSync", "getNetworkStatus", []);
     },
     register: function(SyncRegistrationOptions){
 	console.log("Registering onSync");
@@ -124,11 +123,11 @@ var SyncManager = {
     },
     //Go through all the current registrations. If their requirements are met, resolve their promises
     syncCheck: function(message){
-    	console.log("wake up check");
+    	console.log("syncCheck");
 	isIdle = message;
-
-    	//iOS allows for 30 seconds of background sync, so to be safe, timeout is set at 25
-	setTimeout(resolveRegistrations(), 1000*25);	
+	
+	//Check the network status, will automatically call resolveRegistrations();
+	SyncManager.updateNetworkStatus();
     }
 }
 
