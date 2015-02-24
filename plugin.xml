@@ -1,0 +1,42 @@
+<?xml verision="1.0" encoding="UTF-8"?>
+<plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
+	   id="org.apache.cordova.backgrounsync"
+      version="0.0.1-dev">
+    <name>BackgroundSync</name>
+    <description>BackgroundSync Plugin</description>
+    <license>Apache 2.0</license>
+    <keywords>cordova,backgroundsync</keywords>
+
+    <dependency id="org.apache.cordova.serviceworker" url="https://github.com/mwoghiren/cordova-plugin-serviceworker.git" />
+
+    <js-module src="www/SyncManager.js" name="SyncManager">
+	<clobbers target="SyncManager" />
+    </js-module>
+    <js-module src="www/BackgroundSync.js" name="BackgroundSync">
+	<clobbers target="BackgroundSync" />
+    </js-module>
+    <js-module src="www/SyncRegistrationOptions.js" name="SyncRegistrationOptions">
+	<clobbers target="SyncRegistrationOptions" />
+    </js-module>
+
+    <platform name="ios">
+	<config-file target="config.xml" parent="/*">
+	    <feature name="BackgroundSync">
+		<param name="ios-package" value="CDVBackgroundSync" />
+	    </feature>
+	</config-file>
+	<config-file target="*-Info.plist" parent="UIBackgroundModes">
+	    <array>
+		<string>fetch</string>
+	    </array>
+	</config-file>
+	<header-file src="src/ios/CDVBackgroundSync.h" />
+	<source-file src="src/ios/CDVBackgroundSync.m" />
+	<header-file src="src/ios/AppDelegate+sync.h" />
+	<source-file src="src/ios/AppDelegate+sync.m" />
+	<header-file src="src/ios/Reachability.h" />
+	<source-file src="src/ios/Reachability.m" />
+	<framework src="SystemConfiguration.framework" />
+    </platform>
+
+</plugin>
