@@ -21,13 +21,14 @@ CDVBackgroundSync *backgroundSync;
 }
 
 - (AppDelegate *)swizzled_init {
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(registerBackgroundFetch:) name:@"UIApplicationDidFinishLaunchingNotification" object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(backgroundSyncSetup:) name:@"UIApplicationDidFinishLaunchingNotification" object:nil];
     return [self swizzled_init];
 }
 
-- (void)registerBackgroundFetch:(NSNotification *)notification {
+- (void)backgroundSyncSetup:(NSNotification *)notification {
     [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalMinimum];
     backgroundSync = [self getCommandInstance:@"BackgroundSync"];
+    [backgroundSync restoreRegistrations];
     backgroundSync.serviceWorker = [self getCommandInstance:@"ServiceWorker"];;
 }
 

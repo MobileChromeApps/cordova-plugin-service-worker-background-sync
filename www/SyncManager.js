@@ -105,7 +105,11 @@ var SyncManager = {
     //Go through all the current registrations. If their requirements are met, resolve their promises
     syncCheck: function(message) {
 	console.log("syncCheck");
-	isIdle = message;
+	if(message === "idle") {
+	    isIdle = true;
+	} else {
+	    isIdle = false;
+	}
 	//Check the network status, will automatically call resolveRegistrations();
 	SyncManager.updateNetworkStatus();
     },

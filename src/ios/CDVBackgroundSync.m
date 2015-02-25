@@ -22,12 +22,23 @@
 #import "Reachability.h"
 #import <JavaScriptCore/JavaScriptCore.h>
 
+NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
+
 @implementation CDVBackgroundSync
 
 @synthesize syncCheckCallback;
 @synthesize completionHandler;
 @synthesize serviceWorker;
 @synthesize registrationList;
+
+-(void)restoreRegistrations
+{
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSMutableDictionary *restored = [defaults objectForKey:REGISTRATION_LIST_STORAGE_KEY];
+    if (restored != nil) {
+        registrationList = restored;
+    }
+}
 
 - (void)registerFetch:(CDVInvokedUrlCommand*)command
 {
@@ -47,7 +58,7 @@
     }
     //Save the list
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    [defaults setObject:registrationList forKey:@"registrationList"];
+    [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
     [defaults synchronize];
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
@@ -90,7 +101,7 @@
         
         [weakSelf.registrationList removeObjectForKey:regId];
         NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-        [defaults setObject:weakSelf.registrationList forKey:@"registrationList"];
+        [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
         [defaults synchronize];
     };
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_NO_RESULT];
@@ -103,7 +114,7 @@
     NSLog(@"Unregistered %@ without syncing", [command argumentAtIndex:0]);
     [registrationList removeObjectForKey:[command argumentAtIndex:0]];
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    [defaults setObject:registrationList forKey:@"registrationList"];
+    [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
     [defaults synchronize];
 }
 
@@ -120,7 +131,7 @@
     NSLog(@"Fetching");
     self.completionHandler = handler;
     if (self.syncCheckCallback) {
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:YES];
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"idle"];
         [result setKeepCallback:[NSNumber numberWithBool:YES]];
         [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
     }

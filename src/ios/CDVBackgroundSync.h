@@ -31,5 +31,6 @@ typedef void(^Completion)(UIBackgroundFetchResult);
 
 - (void)setContentAvailable:(CDVInvokedUrlCommand*)command;
 - (void)fetchNewDataWithCompletionHandler:(Completion)handler;
+- (void)restoreRegistrations;
 
 @end

@@ -3,6 +3,6 @@
 @interface AppDelegate (sync)
 
 - (id) getCommandInstance:(NSString *)className;
-- (void) registerBackgroundFetch:(NSNotification *)notification;
+- (void) backgroundSyncSetup:(NSNotification *)notification;
 
 @end
