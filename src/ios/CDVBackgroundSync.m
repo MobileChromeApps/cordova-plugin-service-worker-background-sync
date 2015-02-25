@@ -25,12 +25,13 @@
 @implementation CDVBackgroundSync
 
 @synthesize syncCheckCallback;
-@synthesize unregisterCallback;
 @synthesize completionHandler;
 @synthesize serviceWorker;
+@synthesize registrationList;
 
 - (void)registerFetch:(CDVInvokedUrlCommand*)command
 {
+    
     self.syncCheckCallback = command.callbackId;
     
     NSLog(@"register %@", syncCheckCallback);
@@ -41,25 +42,86 @@
     
 }
 
+- (void)register:(CDVInvokedUrlCommand*)command
+{
+    
+    if(registrationList == nil) {
+        //registrationList = [NSMutableArray arrayWithObject:[command argumentAtIndex:0]];
+        registrationList = [NSMutableDictionary dictionaryWithObject:[command argumentAtIndex:0] forKey:[[command argumentAtIndex:0] objectForKey:@"id"]];
+    } else {
+        //[registrationList addObject:[command argumentAtIndex:0]];
+        [registrationList setObject:[command argumentAtIndex:0] forKey:[[command argumentAtIndex:0] objectForKey:@"id"]];
+    }
+    
+    //Save the list
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    [defaults setObject:registrationList forKey:@"registrationList"];
+    [defaults synchronize];
+    
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    
+}
+
+- (void)checkUniqueId:(CDVInvokedUrlCommand*)command
+{
+    NSString* regId = [command argumentAtIndex:0];
+    
+    if ([registrationList objectForKey:regId] == nil){
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    } else {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"This ID has already been registered."];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    }
+    
+}
+
+- (void)recoverRegistrations:(CDVInvokedUrlCommand*)command
+{
+    // If we have pre-existing registrations, give them to the javascript side
+    if(registrationList != nil && [registrationList count] != 0){
+        //CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:registrationList];
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:[registrationList allValues]];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    } else {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Preexisting Registrations"];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    }
+}
+
+- (void)getRegistrations:(CDVInvokedUrlCommand*)command
+{
+    // If we have pre-existing registrations, give them to the javascript side
+    if(registrationList != nil && [registrationList count] != 0){
+        //CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:registrationList];
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:[registrationList allValues]];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    } else {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Preexisting Registrations"];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    }
+}
+
 - (void)unregisterSetup:(CDVInvokedUrlCommand*)command
 {
-    self.unregisterCallback = command.callbackId;
-    
     //create weak reference to self in order to prevent retain cycle in block
     __weak CDVBackgroundSync* weakSelf = self;
     
     // Set up service worker unregister event
     serviceWorker.context[@"unregisterSync"] = ^(JSValue *registrationId) {
         NSLog(@"Unregistering %@", registrationId);
-        NSString *message = [registrationId toString];
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:message];
-        [result setKeepCallback:[NSNumber numberWithBool:YES]];
-        [weakSelf.commandDelegate sendPluginResult:result callbackId:weakSelf.unregisterCallback];
+        NSString *regId = [registrationId toString];
+        
+        [weakSelf.registrationList removeObjectForKey:regId];
+        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+        [defaults setObject:weakSelf.registrationList forKey:@"registrationList"];
+        [defaults synchronize];
     };
     
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_NO_RESULT];
     [result setKeepCallback:[NSNumber numberWithBool:YES]];
-    [self.commandDelegate sendPluginResult:result callbackId:unregisterCallback];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
 - (void)setContentAvailable:(CDVInvokedUrlCommand*)command

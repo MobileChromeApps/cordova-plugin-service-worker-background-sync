@@ -25,9 +25,9 @@
 typedef void(^Completion)(UIBackgroundFetchResult);
 
 @property (nonatomic, copy) NSString *syncCheckCallback;
-@property (nonatomic, copy) NSString *unregisterCallback;
 @property (nonatomic, copy) Completion completionHandler;
 @property (nonatomic, strong) CDVServiceWorker *serviceWorker;
+@property (nonatomic, strong) NSMutableDictionary *registrationList;
 
 - (void)setContentAvailable:(CDVInvokedUrlCommand*)command;
 
