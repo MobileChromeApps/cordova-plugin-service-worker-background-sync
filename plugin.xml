@@ -15,9 +15,12 @@
     <js-module src="www/BackgroundSync.js" name="BackgroundSync">
 	<clobbers target="BackgroundSync" />
     </js-module>
-    <js-module src="www/SyncRegistrationOptions.js" name="SyncRegistrationOptions">
-	<clobbers target="SyncRegistrationOptions" />
+    <js-module src="www/SyncRegistration.js" name="SyncRegistration">
+	<clobbers target="SyncRegistration" />
     </js-module>
+    
+    <!-- Assets for use by service worker -->
+    <asset src="www/sw_assets/sync.js" target="sw_assets/sync.js" />
 
     <platform name="ios">
 	<config-file target="config.xml" parent="/*">

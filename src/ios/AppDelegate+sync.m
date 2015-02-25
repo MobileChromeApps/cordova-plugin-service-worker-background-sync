@@ -1,8 +1,11 @@
 #import "AppDelegate+sync.h"
 #import "CDVBackgroundSync.h"
+#import "CDVServiceWorker.h"
 #import <objc/runtime.h>
 
 @implementation AppDelegate (sync)
+
+CDVBackgroundSync *backgroundSync;
 
 - (id)getCommandInstance:(NSString *)className {
     return [self.viewController getCommandInstance:className];
@@ -24,10 +27,11 @@
 
 - (void)registerBackgroundFetch:(NSNotification *)notification {
     [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalMinimum];
+    backgroundSync = [self getCommandInstance:@"BackgroundSync"];
+    backgroundSync.serviceWorker = [self getCommandInstance:@"ServiceWorker"];;
 }
 
 - (void)application:(UIApplication *)application performFetchWithCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler{
-    CDVBackgroundSync *backgroundSync = [self getCommandInstance:@"BackgroundSync"];
     [backgroundSync fetchNewDataWithCompletionHandler:completionHandler];
 }
 

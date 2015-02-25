@@ -20,35 +20,55 @@
 #import <Cordova/CDV.h>
 #import "CDVBackgroundSync.h"
 #import "Reachability.h"
+#import <JavaScriptCore/JavaScriptCore.h>
 
 @implementation CDVBackgroundSync
 
-@synthesize callback;
+@synthesize syncCheckCallback;
+@synthesize unregisterCallback;
 @synthesize completionHandler;
+@synthesize serviceWorker;
 
 - (void)registerFetch:(CDVInvokedUrlCommand*)command
 {
-    self.callback = command.callbackId;
+    self.syncCheckCallback = command.callbackId;
     
-    NSLog(@"register %@", callback);
+    NSLog(@"register %@", syncCheckCallback);
     
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_NO_RESULT];
     [result setKeepCallback:[NSNumber numberWithBool:YES]];
-    [self.commandDelegate sendPluginResult:result callbackId:callback];
+    [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
     
 }
 
-- (void)register:(CDVInvokedUrlCommand*)command
+- (void)unregisterSetup:(CDVInvokedUrlCommand*)command
 {
+    self.unregisterCallback = command.callbackId;
+    
+    //create weak reference to self in order to prevent retain cycle in block
+    __weak CDVBackgroundSync* weakSelf = self;
+    
+    // Set up service worker unregister event
+    serviceWorker.context[@"unregisterSync"] = ^(JSValue *registrationId) {
+        NSLog(@"Unregistering %@", registrationId);
+        NSString *message = [registrationId toString];
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:message];
+        [result setKeepCallback:[NSNumber numberWithBool:YES]];
+        [weakSelf.commandDelegate sendPluginResult:result callbackId:weakSelf.unregisterCallback];
+    };
+    
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_NO_RESULT];
     [result setKeepCallback:[NSNumber numberWithBool:YES]];
-    [self.commandDelegate sendPluginResult:result callbackId:callback];
+    [self.commandDelegate sendPluginResult:result callbackId:unregisterCallback];
 }
 
 - (void)setContentAvailable:(CDVInvokedUrlCommand*)command
 {
     NSLog(@"setContentAvailable");
     self.completionHandler((UIBackgroundFetchResult)[[command arguments] objectAtIndex:0]);
+    
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
 - (void)fetchNewDataWithCompletionHandler:(Completion)handler
@@ -56,11 +76,25 @@
     NSLog(@"Fetching");
     
     self.completionHandler = handler;
-    if (self.callback) {
+    if (self.syncCheckCallback) {
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:YES];
         [result setKeepCallback:[NSNumber numberWithBool:YES]];
-        [self.commandDelegate sendPluginResult:result callbackId:callback];
+        [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
     }
+}
+
+- (void)dispatchSyncEvent:(CDVInvokedUrlCommand*)command
+{
+    //[[self.serviceWorker context] evaluateScript:@"dispatchEvent(new ExtendableEvent('sync'));"];
+    NSString *message = [command argumentAtIndex:0];
+    
+    // If we need all of the object properties
+    NSError *error;
+    NSData *json = [NSJSONSerialization dataWithJSONObject:message options:0 error:&error];
+    NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(JSON.parse('%@'));", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
+    
+    //NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(Kamino.parse('%@'));", message];
+    [serviceWorker.context evaluateScript:dispatchCode];
 }
 
 - (NetworkStatus)getNetworkStatus

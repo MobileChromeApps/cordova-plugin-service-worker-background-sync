@@ -8,7 +8,7 @@ var SyncNetworkType = {
     non_mobile: 2
 };
 
-function SyncRegistrationOptions() {
+function SyncRegistration() {
     this.id = null;
     this.minDelay = 0;
     this.maxDelay = 0;
@@ -20,5 +20,5 @@ function SyncRegistrationOptions() {
 
 Object.freeze(SyncNetworkType);
 
-module.exports = SyncRegistrationOptions;
+module.exports = SyncRegistration;
 module.exports.SyncNetworkType = SyncNetworkType;

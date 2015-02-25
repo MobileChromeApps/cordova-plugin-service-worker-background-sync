@@ -18,16 +18,17 @@
  */
 
 #import <Cordova/CDVPlugin.h>
+#import "CDVServiceWorker.h"
 
 @interface CDVBackgroundSync : CDVPlugin {}
 
 typedef void(^Completion)(UIBackgroundFetchResult);
 
-@property (nonatomic, copy) NSString *callback;
+@property (nonatomic, copy) NSString *syncCheckCallback;
+@property (nonatomic, copy) NSString *unregisterCallback;
 @property (nonatomic, copy) Completion completionHandler;
+@property (nonatomic, strong) CDVServiceWorker *serviceWorker;
 
-
-- (void)register:(CDVInvokedUrlCommand*)command;
 - (void)setContentAvailable:(CDVInvokedUrlCommand*)command;
 
 - (void)fetchNewDataWithCompletionHandler:(Completion)handler;
