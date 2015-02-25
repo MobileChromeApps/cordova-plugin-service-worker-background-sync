@@ -35,6 +35,4 @@ CDVBackgroundSync *backgroundSync;
     [backgroundSync fetchNewDataWithCompletionHandler:completionHandler];
 }
 
-
-
 @end

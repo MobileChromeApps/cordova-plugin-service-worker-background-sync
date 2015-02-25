@@ -31,61 +31,36 @@
 
 - (void)registerFetch:(CDVInvokedUrlCommand*)command
 {
-    
     self.syncCheckCallback = command.callbackId;
-    
     NSLog(@"register %@", syncCheckCallback);
-    
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_NO_RESULT];
     [result setKeepCallback:[NSNumber numberWithBool:YES]];
     [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
-    
 }
 
 - (void)register:(CDVInvokedUrlCommand*)command
 {
-    
     if(registrationList == nil) {
-        //registrationList = [NSMutableArray arrayWithObject:[command argumentAtIndex:0]];
         registrationList = [NSMutableDictionary dictionaryWithObject:[command argumentAtIndex:0] forKey:[[command argumentAtIndex:0] objectForKey:@"id"]];
     } else {
-        //[registrationList addObject:[command argumentAtIndex:0]];
         [registrationList setObject:[command argumentAtIndex:0] forKey:[[command argumentAtIndex:0] objectForKey:@"id"]];
     }
-    
     //Save the list
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     [defaults setObject:registrationList forKey:@"registrationList"];
     [defaults synchronize];
-    
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-    
 }
 
 - (void)checkUniqueId:(CDVInvokedUrlCommand*)command
 {
     NSString* regId = [command argumentAtIndex:0];
-    
-    if ([registrationList objectForKey:regId] == nil){
+    if ([registrationList objectForKey:regId] == nil) {
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     } else {
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"This ID has already been registered."];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-    }
-    
-}
-
-- (void)recoverRegistrations:(CDVInvokedUrlCommand*)command
-{
-    // If we have pre-existing registrations, give them to the javascript side
-    if(registrationList != nil && [registrationList count] != 0){
-        //CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:registrationList];
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:[registrationList allValues]];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-    } else {
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Preexisting Registrations"];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     }
 }
@@ -93,7 +68,7 @@
 - (void)getRegistrations:(CDVInvokedUrlCommand*)command
 {
     // If we have pre-existing registrations, give them to the javascript side
-    if(registrationList != nil && [registrationList count] != 0){
+    if(registrationList != nil && [registrationList count] != 0) {
         //CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:registrationList];
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:[registrationList allValues]];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
@@ -118,17 +93,24 @@
         [defaults setObject:weakSelf.registrationList forKey:@"registrationList"];
         [defaults synchronize];
     };
-    
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_NO_RESULT];
     [result setKeepCallback:[NSNumber numberWithBool:YES]];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+}
+
+- (void)unregister:(CDVInvokedUrlCommand*)command
+{
+    NSLog(@"Unregistered %@ without syncing", [command argumentAtIndex:0]);
+    [registrationList removeObjectForKey:[command argumentAtIndex:0]];
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    [defaults setObject:registrationList forKey:@"registrationList"];
+    [defaults synchronize];
 }
 
 - (void)setContentAvailable:(CDVInvokedUrlCommand*)command
 {
     NSLog(@"setContentAvailable");
     self.completionHandler((UIBackgroundFetchResult)[[command arguments] objectAtIndex:0]);
-    
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
@@ -136,7 +118,6 @@
 - (void)fetchNewDataWithCompletionHandler:(Completion)handler
 {
     NSLog(@"Fetching");
-    
     self.completionHandler = handler;
     if (self.syncCheckCallback) {
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:YES];
@@ -153,29 +134,16 @@
     // If we need all of the object properties
     NSError *error;
     NSData *json = [NSJSONSerialization dataWithJSONObject:message options:0 error:&error];
-    NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(JSON.parse('%@'));", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
-    
-    //NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(Kamino.parse('%@'));", message];
+    NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(JSON.parse('%@'));", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];    
     [serviceWorker.context evaluateScript:dispatchCode];
-}
-
-- (NetworkStatus)getNetworkStatus
-{
-    Reachability* reach = [Reachability reachabilityForInternetConnection];
-    [reach startNotifier];
-    
-    return [reach currentReachabilityStatus];
 }
 
 - (void)getNetworkStatus:(CDVInvokedUrlCommand*)command
 {
     Reachability* reach = [Reachability reachabilityForInternetConnection];
     [reach startNotifier];
-    
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:[reach currentReachabilityStatus]];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-    
 }
-
 @end
 

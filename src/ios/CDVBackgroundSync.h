@@ -30,7 +30,6 @@ typedef void(^Completion)(UIBackgroundFetchResult);
 @property (nonatomic, strong) NSMutableDictionary *registrationList;
 
 - (void)setContentAvailable:(CDVInvokedUrlCommand*)command;
-
 - (void)fetchNewDataWithCompletionHandler:(Completion)handler;
 
 @end
