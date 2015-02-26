@@ -125,6 +125,11 @@ var SyncManager = {
     getRegistrations: function() {
     	return new Promise(function(resolve, reject) {
 	    var innerSuccess = function(regs) {
+		regs.forEach(function(reg) {
+		    reg.unregister = function() {
+			cordova.exec(null, null, "BackgroundSync", "unregister", [reg.id]);
+		    };
+		});
 		resolve(regs)
 	    }
 	    var innerFail = function(regs) {

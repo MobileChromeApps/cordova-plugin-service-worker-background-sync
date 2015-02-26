@@ -80,7 +80,6 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
 {
     // If we have pre-existing registrations, give them to the javascript side
     if(registrationList != nil && [registrationList count] != 0) {
-        //CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:registrationList];
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:[registrationList allValues]];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     } else {
