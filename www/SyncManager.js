@@ -7,8 +7,8 @@ var isIdle = false;
 
 // Checks to see if the criteria have been met for this registration
 // Currently Supported Options:
-// id, minDelay, minRequiredNetwork, idleRequired
-// Todo: allowOnBattery, maxDelay, minPeriod
+// id, minDelay, minRequiredNetwork, idleRequired, maxDelay
+// Todo: allowOnBattery, minPeriod
 var checkSyncRegistration = function(registration) {
     console.log(registration);
     if(registration.maxDelay != 0 && ((new Date()).getTime() - registration.maxDelay > registration.time)) {
@@ -37,16 +37,16 @@ var resolveRegistrations = function(connectionType) {
     networkStatus = connectionType;
     var inner = function(regs) {
 	var bEventDispatched = false;
-	for(var i = 0; i < regs.length; i++) {
-	    if (checkSyncRegistration(regs[i])) {
-		exec(null, null, "BackgroundSync", "dispatchSyncEvent", [regs[i]]);
+	regs.forEach(function(reg){
+	    if (checkSyncRegistration(reg)) {
+		exec(null, null, "BackgroundSync", "dispatchSyncEvent", [reg]);
 		bEventDispatched = true;
 		/*if (regs[i].minPeriod != 0) {
 		    regs[i].hasBeenExecuted = true;
 		    regs[i].time = (new Date()).getTime();
 		}*/
 	    }
-	}
+	});
     }
     exec(inner, null, "BackgroundSync", "getRegistrations", []);
 }
@@ -84,69 +84,61 @@ var cloneOptions = function(toClone) {
     return options;
 }
 
-var SyncManager = {
-    registerFetch: function(callback) {
-	console.log("Registering BackgroundFetch");
-	exec(callback, null, "BackgroundSync", "registerFetch", []);
-    },
-    updateNetworkStatus: function() {
-	//TODO: Add hostname as parameter for getNetworkStatus to ensure connection
-	exec(resolveRegistrations, null, "BackgroundSync", "getNetworkStatus", []);
-    },
-    //Go through all the current registrations. If their requirements are met, resolve their promises
-    syncCheck: function(message) {
-	console.log("syncCheck");
-	if(message === "idle") {
-	    isIdle = true;
-	} else {
-	    isIdle = false;
-	}
-	//Check the network status, will automatically call resolveRegistrations();
-	SyncManager.updateNetworkStatus();
-    },
-    register: function(SyncRegistrationOptions) {
-	console.log("Registering onSync");
-	var options = cloneOptions(SyncRegistrationOptions);
-	return new Promise(function(resolve,reject) {
-	    var innerSuccess = function() {
-		//add this registration to the list to check with a new promise
-		console.log("Adding to Sync List");
-		exec(SyncManager.syncCheck, null, "BackgroundSync", "register", [options]);
-		resolve(options);
-	    };
-	    var innerFail = function() {
-		reject(options); 
-	    };
-
-	    // Check that this registration id does not already exist in the registration list
-	    exec(innerSuccess, innerFail, "BackgroundSync", "checkUniqueId", [options.id])
-	});
-    },
-    getRegistrations: function() {
-    	return new Promise(function(resolve, reject) {
-	    var innerSuccess = function(regs) {
-		regs.forEach(function(reg) {
-		    reg.unregister = function() {
-			cordova.exec(null, null, "BackgroundSync", "unregister", [reg.id]);
-		    };
-		});
-		resolve(regs)
-	    }
-	    var innerFail = function(regs) {
-		resolve(null);
-	    }
-	    exec(innerSuccess, innerFail, "BackgroundSync", "getRegistrations", []);
-	});
+var syncCheck = function(message) {
+    console.log("syncCheck");
+    if(message === "idle") {
+	isIdle = true;
+    } else {
+	isIdle = false;
     }
+    //Check the network status and then resolve registrations
+    exec(resolveRegistrations, null, "BackgroundSync", "getNetworkStatus", []);
+}
+
+SyncManager = function() {
+    return this;
+};
+
+SyncManager.prototype.register = function(SyncRegistrationOptions) {
+    console.log("Registering Sync");
+    var options = cloneOptions(SyncRegistrationOptions);
+    return new Promise(function(resolve,reject) {
+	var innerSuccess = function() {
+	    exec(syncCheck, null, "BackgroundSync", "register", [options]);
+	    resolve(options);
+	};
+	var innerFail = function() {
+	    reject(options); 
+	};
+
+	// Check that this registration id does not already exist in the registration list
+	exec(innerSuccess, innerFail, "BackgroundSync", "checkUniqueId", [options.id])
+    });
+};
+
+SyncManager.prototype.getRegistrations = function() {
+    return new Promise(function(resolve, reject) {
+	var innerSuccess = function(regs) {
+	    regs.forEach(function(reg) {
+		reg.unregister = function() {
+		    cordova.exec(null, null, "BackgroundSync", "unregister", [reg.id]);
+		};
+	    });
+	    resolve(regs)
+	}
+	var innerFail = function(regs) {
+	    resolve(null);
+	}
+	exec(innerSuccess, innerFail, "BackgroundSync", "getRegistrations", []);
+    });
 }
 
 navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
-    serviceWorkerRegistration.syncManager = SyncManager;
-    exec(SyncManager.syncCheck, null, "BackgroundSync", "registerFetch", []);
-    exec(null, null, "BackgroundSync", "unregisterSetup", []);
+    serviceWorkerRegistration.syncManager = new SyncManager();
+    exec(syncCheck, null, "BackgroundSync", "initBackgroundSync", []);
     
     //If there are any registrations at startup, check them
-    exec(SyncManager.syncCheck, null, "BackgroundSync", "getRegistrations", []);
+    exec(syncCheck, null, "BackgroundSync", "getRegistrations", []);
 });
  
 module.exports = SyncManager;

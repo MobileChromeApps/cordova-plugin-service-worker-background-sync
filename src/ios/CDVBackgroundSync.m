@@ -40,8 +40,12 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     }
 }
 
-- (void)registerFetch:(CDVInvokedUrlCommand*)command
+- (void)initBackgroundSync:(CDVInvokedUrlCommand*)command
 {
+    //TODO: Find a better place to run this setup
+    [self syncResponseSetup];
+    [self unregisterSetup];
+    
     self.syncCheckCallback = command.callbackId;
     NSLog(@"register %@", syncCheckCallback);
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_NO_RESULT];
@@ -51,7 +55,7 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
 
 - (void)register:(CDVInvokedUrlCommand*)command
 {
-    if(registrationList == nil) {
+    if (registrationList == nil) {
         registrationList = [NSMutableDictionary dictionaryWithObject:[command argumentAtIndex:0] forKey:[[command argumentAtIndex:0] objectForKey:@"id"]];
     } else {
         [registrationList setObject:[command argumentAtIndex:0] forKey:[[command argumentAtIndex:0] objectForKey:@"id"]];
@@ -79,36 +83,13 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
 - (void)getRegistrations:(CDVInvokedUrlCommand*)command
 {
     // If we have pre-existing registrations, give them to the javascript side
-    if(registrationList != nil && [registrationList count] != 0) {
+    if (registrationList != nil && [registrationList count] != 0) {
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:[registrationList allValues]];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     } else {
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Preexisting Registrations"];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     }
-}
-
-- (void)unregisterSetup:(CDVInvokedUrlCommand*)command
-{
-    //TODO: Find a better place to run this setup
-    [self syncResponseSetup];
-    
-    //create weak reference to self in order to prevent retain cycle in block
-    __weak CDVBackgroundSync* weakSelf = self;
-    
-    // Set up service worker unregister event
-    serviceWorker.context[@"unregisterSync"] = ^(JSValue *registrationId) {
-        NSLog(@"Unregistering %@", registrationId);
-        NSString *regId = [registrationId toString];
-        
-        [weakSelf.registrationList removeObjectForKey:regId];
-        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-        [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
-        [defaults synchronize];
-    };
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_NO_RESULT];
-    [result setKeepCallback:[NSNumber numberWithBool:YES]];
-    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
 - (void)unregisterSetup
@@ -145,11 +126,11 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType) {
         
         //Response Type: 0 = New Data, 1 = No Data, 2 = Failed to Fetch
-        if(weakSelf.completionHandler) {
+        if (weakSelf.completionHandler) {
             if ([responseType toInt32] == 0) {
                 NSLog(@"Got new data");
                 weakSelf.completionHandler(UIBackgroundFetchResultNewData);
-            } else if([responseType toInt32] == 1) {
+            } else if ([responseType toInt32] == 1) {
                 NSLog(@"Got no data");
                 weakSelf.completionHandler(UIBackgroundFetchResultNoData);
             } else if ([responseType toInt32] == 2) {

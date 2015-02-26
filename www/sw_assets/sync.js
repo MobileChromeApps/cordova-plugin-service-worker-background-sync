@@ -14,12 +14,11 @@ Registration.prototype.unregister = function() {
 };
 
 SyncEvent = function() {
-     return this;
+    this.registration = new Registration();
+    return this;
 };
 
 SyncEvent.prototype = new ExtendableEvent('sync');
-
-SyncEvent.prototype.registration = new Registration();
 
 FireSyncEvent = function(data) {
     var ev = new SyncEvent();
