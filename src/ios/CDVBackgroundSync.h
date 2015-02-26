@@ -29,8 +29,9 @@ typedef void(^Completion)(UIBackgroundFetchResult);
 @property (nonatomic, strong) CDVServiceWorker *serviceWorker;
 @property (nonatomic, strong) NSMutableDictionary *registrationList;
 
-- (void)setContentAvailable:(CDVInvokedUrlCommand*)command;
 - (void)fetchNewDataWithCompletionHandler:(Completion)handler;
 - (void)restoreRegistrations;
+- (void)syncResponseSetup;
+- (void)unregisterSetup;
 
 @end

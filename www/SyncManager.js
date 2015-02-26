@@ -47,15 +47,6 @@ var resolveRegistrations = function(connectionType) {
 		}*/
 	    }
 	}
-	//For completionType: 0 = NewData, 1 = NoData, 2 = Failed
-	var completionType = 1;
-
-	if(bEventDispatched) {
-	    completionType = 0;
-	}
-	if(isIdle) {
-	    exec(null, null, "BackgroundSync", "setContentAvailable", [completionType]);
-	}
     }
     exec(inner, null, "BackgroundSync", "getRegistrations", []);
 }

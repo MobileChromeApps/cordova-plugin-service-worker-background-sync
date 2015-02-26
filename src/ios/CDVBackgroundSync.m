@@ -91,6 +91,9 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
 
 - (void)unregisterSetup:(CDVInvokedUrlCommand*)command
 {
+    //TODO: Find a better place to run this setup
+    [self syncResponseSetup];
+    
     //create weak reference to self in order to prevent retain cycle in block
     __weak CDVBackgroundSync* weakSelf = self;
     
@@ -109,6 +112,23 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
+- (void)unregisterSetup
+{
+    //create weak reference to self in order to prevent retain cycle in block
+    __weak CDVBackgroundSync* weakSelf = self;
+    
+    // Set up service worker unregister event
+    serviceWorker.context[@"unregisterSync"] = ^(JSValue *registrationId) {
+        NSLog(@"Unregistering %@", registrationId);
+        NSString *regId = [registrationId toString];
+        
+        [weakSelf.registrationList removeObjectForKey:regId];
+        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+        [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
+        [defaults synchronize];
+    };
+}
+
 - (void)unregister:(CDVInvokedUrlCommand*)command
 {
     NSLog(@"Unregistered %@ without syncing", [command argumentAtIndex:0]);
@@ -118,12 +138,28 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     [defaults synchronize];
 }
 
-- (void)setContentAvailable:(CDVInvokedUrlCommand*)command
+- (void)syncResponseSetup
 {
-    NSLog(@"setContentAvailable");
-    self.completionHandler((UIBackgroundFetchResult)[[command arguments] objectAtIndex:0]);
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
-    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    //create weak reference to self in order to prevent retain cycle in block
+    __weak CDVBackgroundSync* weakSelf = self;
+    
+    serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType) {
+        
+        //Response Type: 0 = New Data, 1 = No Data, 2 = Failed to Fetch
+        if(weakSelf.completionHandler) {
+            if ([responseType toInt32] == 0) {
+                NSLog(@"Got new data");
+                weakSelf.completionHandler(UIBackgroundFetchResultNewData);
+            } else if([responseType toInt32] == 1) {
+                NSLog(@"Got no data");
+                weakSelf.completionHandler(UIBackgroundFetchResultNoData);
+            } else if ([responseType toInt32] == 2) {
+                NSLog(@"Failed to get data");
+                weakSelf.completionHandler(UIBackgroundFetchResultFailed);
+            }
+            weakSelf.completionHandler = nil;
+        }
+    };
 }
 
 - (void)fetchNewDataWithCompletionHandler:(Completion)handler
@@ -145,7 +181,7 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     // If we need all of the object properties
     NSError *error;
     NSData *json = [NSJSONSerialization dataWithJSONObject:message options:0 error:&error];
-    NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(JSON.parse('%@'));", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];    
+    NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(JSON.parse('%@'));", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
     [serviceWorker.context evaluateScript:dispatchCode];
 }
 

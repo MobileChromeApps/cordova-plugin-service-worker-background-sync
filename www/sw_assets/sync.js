@@ -7,17 +7,17 @@
 
 Registration = function() {
     return this;
-}
+};
 
 Registration.prototype.unregister = function() {
     unregisterSync(this.id);
-}
+};
 
 SyncEvent = function() {
      return this;
-}
+};
 
-SyncEvent.prototype = new Event('sync');
+SyncEvent.prototype = new ExtendableEvent('sync');
 
 SyncEvent.prototype.registration = new Registration();
 
@@ -32,4 +32,14 @@ FireSyncEvent = function(data) {
     ev.registration.allowOnBattery = data.allowOnBattery;
     ev.registration.idleRequired = data.idleRequired;*/
     dispatchEvent(ev);
-}
+    if(ev.promises instanceof Array) {
+	return Promise.all(ev.promises).then(function(){
+		sendSyncResponse(0);
+	    },function(){
+		sendSyncResponse(2);
+	    });
+    } else {
+	sendSyncResponse(1);
+	return Promise.resolve();
+    }
+};
