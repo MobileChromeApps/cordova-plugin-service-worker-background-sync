@@ -1,7 +1,6 @@
 var exec = require('cordova/exec');
 var serviceWorker = require('org.apache.cordova.serviceworker.ServiceWorker');
 
-//List of all current SyncManager Registrations. Kept outside of object so that it is not exposed
 var networkStatus;
 var isIdle = false;
 

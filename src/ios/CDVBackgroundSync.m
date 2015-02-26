@@ -45,6 +45,7 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     //TODO: Find a better place to run this setup
     [self syncResponseSetup];
     [self unregisterSetup];
+    [self networkCheckSetup];
     
     self.syncCheckCallback = command.callbackId;
     NSLog(@"register %@", syncCheckCallback);
@@ -142,6 +143,27 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     };
 }
 
+
+
+- (void)networkCheckSetup
+{
+    Reachability* reach = [Reachability reachabilityForInternetConnection];
+    
+    reach.reachableBlock = ^(Reachability*reach)
+    {
+        NSLog(@"Regained network");
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"notIdle"];
+        [result setKeepCallback:[NSNumber numberWithBool:YES]];
+        [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
+    };
+    
+    reach.unreachableBlock = ^(Reachability*reach){
+        NSLog(@"Lost Connection");
+    };
+    
+    [reach startNotifier];
+}
+
 - (void)fetchNewDataWithCompletionHandler:(Completion)handler
 {
     NSLog(@"Fetching");
@@ -170,6 +192,36 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     Reachability* reach = [Reachability reachabilityForInternetConnection];
     [reach startNotifier];
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:[reach currentReachabilityStatus]];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+}
+
+- (void)getBestForegroundSyncTime:(CDVInvokedUrlCommand*)command
+{
+    NSArray* registrations = [registrationList allValues];
+    NSNumber *latestTime = [registrations[0] valueForKey:@"time"];
+    NSNumber *bestTime = [registrations[0] valueForKey:@"time"];
+    NSNumber *time;
+    NSNumber *maxDelay;
+    NSNumber *minDelay;
+    
+    // Get the latest time without having a sync registration expire
+    for (NSInteger i = 0; i < [registrations count]; i++) {
+        time = [registrations[i] valueForKey:@"time"];
+        maxDelay = [registrations[i] valueForKey:@"maxDelay"];
+        if (time.integerValue + maxDelay.integerValue < latestTime.integerValue && maxDelay.integerValue != 0) {
+            latestTime = @(time.integerValue + maxDelay.integerValue);
+        }
+    }
+    
+    // Find the time at which we have met the maximum min delays without exceding latestTime
+    for (NSInteger i = 0; i < [registrations count]; i++) {
+        time = [registrations[i] valueForKey:@"time"];
+        minDelay = [registrations[i] valueForKey:@"minDelay"];
+        if(time.integerValue + minDelay.integerValue < latestTime.integerValue && time.integerValue + minDelay.integerValue > bestTime.integerValue) {
+            bestTime = @(time.integerValue + minDelay.integerValue);
+        }
+    }
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:[bestTime intValue]];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 @end
