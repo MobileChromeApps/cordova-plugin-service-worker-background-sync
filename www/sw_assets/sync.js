@@ -33,12 +33,12 @@ FireSyncEvent = function(data) {
     dispatchEvent(ev);
     if(ev.promises instanceof Array) {
 	return Promise.all(ev.promises).then(function(){
-		sendSyncResponse(0);
+		sendSyncResponse(0, data.id);
 	    },function(){
-		sendSyncResponse(2);
+		sendSyncResponse(2, data.id);
 	    });
     } else {
-	sendSyncResponse(1);
+	sendSyncResponse(1, data.id);
 	return Promise.resolve();
     }
 };

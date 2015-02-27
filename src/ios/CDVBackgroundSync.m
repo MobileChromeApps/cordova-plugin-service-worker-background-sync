@@ -23,6 +23,11 @@
 #import <JavaScriptCore/JavaScriptCore.h>
 
 NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
+NSString * const REGISTRATION_LIST_MEAN_STORAGE_KEY = @"registrationListMean";
+NSString * const REGISTRATION_LIST_STD_DEV_STORAGE_KEY = @"registrationListStdDev";
+
+NSNumber *mean;
+NSNumber *stdDev;
 
 @implementation CDVBackgroundSync
 
@@ -37,6 +42,14 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     NSMutableDictionary *restored = [defaults objectForKey:REGISTRATION_LIST_STORAGE_KEY];
     if (restored != nil) {
         registrationList = restored;
+    }
+    NSNumber * temp = [defaults objectForKey:REGISTRATION_LIST_MEAN_STORAGE_KEY];
+    if (temp != nil) {
+        mean = temp;
+    }
+    temp = [defaults objectForKey:REGISTRATION_LIST_STD_DEV_STORAGE_KEY];
+    if (temp != nil) {
+        stdDev = temp;
     }
 }
 
@@ -61,10 +74,19 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     } else {
         [registrationList setObject:[command argumentAtIndex:0] forKey:[[command argumentAtIndex:0] objectForKey:@"id"]];
     }
+    NSLog(@"Registering %@", [[command argumentAtIndex:0] objectForKey:@"id"]);
+    
+    //Recalculate the mean and standard devs of time
+    [self setMeanRegistrationTimePlusDelay:[registrationList allValues]];
+    [self setStandardDeviationRegistrationArray:[registrationList allValues] withMean:mean];
+    
     //Save the list
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
+    [defaults setObject:mean forKey:REGISTRATION_LIST_MEAN_STORAGE_KEY];
+    [defaults setObject:stdDev forKey:REGISTRATION_LIST_STD_DEV_STORAGE_KEY];
     [defaults synchronize];
+    
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
@@ -100,23 +122,33 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     
     // Set up service worker unregister event
     serviceWorker.context[@"unregisterSync"] = ^(JSValue *registrationId) {
-        NSLog(@"Unregistering %@", registrationId);
-        NSString *regId = [registrationId toString];
-        
-        [weakSelf.registrationList removeObjectForKey:regId];
-        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-        [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
-        [defaults synchronize];
+        [weakSelf unregisterSyncById:[registrationId toString]];
     };
 }
 
 - (void)unregister:(CDVInvokedUrlCommand*)command
 {
-    NSLog(@"Unregistered %@ without syncing", [command argumentAtIndex:0]);
-    [registrationList removeObjectForKey:[command argumentAtIndex:0]];
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
-    [defaults synchronize];
+    [self unregisterSyncById:[command argumentAtIndex:0]];
+}
+
+- (void)unregisterSyncById:(NSString*)id
+{
+    if ([registrationList objectForKey:id]){
+        NSLog(@"Unregistering %@", id);
+        [registrationList removeObjectForKey:id];
+        
+        //Recalculate the mean and standard devs of time
+        [self setMeanRegistrationTimePlusDelay:[registrationList allValues]];
+        [self setStandardDeviationRegistrationArray:[registrationList allValues] withMean:mean];
+        
+        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+        [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
+        [defaults setObject:mean forKey:REGISTRATION_LIST_MEAN_STORAGE_KEY];
+        [defaults setObject:stdDev forKey:REGISTRATION_LIST_STD_DEV_STORAGE_KEY];
+        [defaults synchronize];
+    } else {
+        NSLog(@"Could not find %@ to unregister", id);
+    }
 }
 
 - (void)syncResponseSetup
@@ -124,13 +156,17 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     //create weak reference to self in order to prevent retain cycle in block
     __weak CDVBackgroundSync* weakSelf = self;
     
-    serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType) {
+    //Indicate to OS success or failure and unregister syncs that have been successfully executed and are not periodic
+    serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType, JSValue *regId) {
         
         //Response Type: 0 = New Data, 1 = No Data, 2 = Failed to Fetch
         if (weakSelf.completionHandler) {
             if ([responseType toInt32] == 0) {
                 NSLog(@"Got new data");
                 weakSelf.completionHandler(UIBackgroundFetchResultNewData);
+                if ([[[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"] toNumber] == 0) {
+                    [weakSelf unregisterSyncById:[regId toString]];
+                }
             } else if ([responseType toInt32] == 1) {
                 NSLog(@"Got no data");
                 weakSelf.completionHandler(UIBackgroundFetchResultNoData);
@@ -139,6 +175,13 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
                 weakSelf.completionHandler(UIBackgroundFetchResultFailed);
             }
             weakSelf.completionHandler = nil;
+        } else {
+            if ([responseType toInt32] == 0) {
+                NSNumber *thing = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"];
+                if (thing.integerValue  == 0) {
+                    [weakSelf unregisterSyncById:[regId toString]];
+                }
+            }
         }
     };
 }
@@ -177,14 +220,17 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
 
 - (void)dispatchSyncEvent:(CDVInvokedUrlCommand*)command
 {
-    //[[self.serviceWorker context] evaluateScript:@"dispatchEvent(new ExtendableEvent('sync'));"];
-    NSString *message = [command argumentAtIndex:0];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void){
+        //[[self.serviceWorker context] evaluateScript:@"dispatchEvent(new ExtendableEvent('sync'));"];
+        NSString *message = [command argumentAtIndex:0];
+        
+        // If we need all of the object properties
+        NSError *error;
+        NSData *json = [NSJSONSerialization dataWithJSONObject:message options:0 error:&error];
+        NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(JSON.parse('%@'));", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
+        [serviceWorker.context evaluateScript:dispatchCode];
+    });
     
-    // If we need all of the object properties
-    NSError *error;
-    NSData *json = [NSJSONSerialization dataWithJSONObject:message options:0 error:&error];
-    NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(JSON.parse('%@'));", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
-    [serviceWorker.context evaluateScript:dispatchCode];
 }
 
 - (void)getNetworkStatus:(CDVInvokedUrlCommand*)command
@@ -198,17 +244,19 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
 - (void)getBestForegroundSyncTime:(CDVInvokedUrlCommand*)command
 {
     NSArray* registrations = [registrationList allValues];
-    NSNumber *latestTime = [registrations[0] valueForKey:@"time"];
+    NSNumber *latestTime;
     NSNumber *bestTime = [registrations[0] valueForKey:@"time"];
     NSNumber *time;
     NSNumber *maxDelay;
     NSNumber *minDelay;
+    BOOL haveMax = NO;
     
     // Get the latest time without having a sync registration expire
     for (NSInteger i = 0; i < [registrations count]; i++) {
         time = [registrations[i] valueForKey:@"time"];
         maxDelay = [registrations[i] valueForKey:@"maxDelay"];
-        if (time.integerValue + maxDelay.integerValue < latestTime.integerValue && maxDelay.integerValue != 0) {
+        if ((((time.integerValue + maxDelay.integerValue) < latestTime.integerValue) || latestTime == nil) && (maxDelay.integerValue != 0)) {
+            haveMax = YES;
             latestTime = @(time.integerValue + maxDelay.integerValue);
         }
     }
@@ -217,12 +265,43 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     for (NSInteger i = 0; i < [registrations count]; i++) {
         time = [registrations[i] valueForKey:@"time"];
         minDelay = [registrations[i] valueForKey:@"minDelay"];
-        if(time.integerValue + minDelay.integerValue < latestTime.integerValue && time.integerValue + minDelay.integerValue > bestTime.integerValue) {
-            bestTime = @(time.integerValue + minDelay.integerValue);
+        if((!haveMax || (time.integerValue + minDelay.integerValue < latestTime.integerValue)) && time.integerValue + minDelay.integerValue > bestTime.integerValue) {
+            //Ensure no super long wait due to outliers by only including times that are 1/2 standard deviation above the mean, and below
+            if (time.integerValue + minDelay.integerValue <= mean.doubleValue + stdDev.doubleValue/2) {
+                bestTime = @(time.integerValue + minDelay.integerValue);
+            }
         }
     }
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:[bestTime intValue]];
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDouble:[bestTime integerValue]];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+}
+
+// Helper function for choosing best foreground sync time
+-(void)setMeanRegistrationTimePlusDelay:(NSArray*)array
+{
+    NSNumber *time;
+    NSNumber *minDelay;
+    NSNumber *total = [NSNumber numberWithDouble:0];
+    for (NSInteger i = 0; i < [array count]; i++) {
+        time = [array[i] valueForKey:@"time"];
+        minDelay = [array[i] valueForKey:@"minDelay"];
+        total = @(total.doubleValue + time.doubleValue + minDelay.doubleValue);
+    }
+    mean = @(total.doubleValue / [array count]);
+}
+
+-(void)setStandardDeviationRegistrationArray:(NSArray*)array withMean:(NSNumber*)mean
+{
+    NSNumber *time;
+    NSNumber *minDelay;
+    NSNumber *variance;
+    for (NSInteger i = 0; i < [array count]; i++) {
+        time = [array[i] valueForKey:@"time"];
+        minDelay = [array[i] valueForKey:@"minDelay"];
+        variance = @(variance.doubleValue + pow((time.doubleValue + minDelay.doubleValue) - mean.doubleValue, 2));
+    }
+    variance = @(variance.doubleValue / [array count]);
+    stdDev = [NSNumber numberWithDouble:sqrt(variance.doubleValue)];
 }
 @end
 
