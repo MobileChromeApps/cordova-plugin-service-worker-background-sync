@@ -180,6 +180,13 @@ NSNumber *stdDev;
                 NSNumber *thing = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"];
                 if (thing.integerValue  == 0) {
                     [weakSelf unregisterSyncById:[regId toString]];
+                } else {
+                    NSLog(@"Reregistering %@", [regId toString]);
+                    // If the event is periodic, then replace its minDelay with its minPeriod and reTimestamp it
+                    [[weakSelf.registrationList objectForKey:[regId toString]] setValue:[[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"] forKey:@"minDelay"];
+                    NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
+                    time = @(time.doubleValue * 1000);
+                    [[weakSelf.registrationList objectForKey:[regId toString]] setValue:time forKey:@"time"];
                 }
             }
         }

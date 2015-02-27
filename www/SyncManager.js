@@ -38,10 +38,6 @@ var resolveRegistrations = function(connectionType) {
 	    if (checkSyncRegistration(reg)) {
 		console.log("Resolving " + reg.id);
 		exec(null, null, "BackgroundSync", "dispatchSyncEvent", [reg]);
-		/*if (regs[i].minPeriod != 0) {
-		    regs[i].hasBeenExecuted = true;
-		    regs[i].time = (new Date()).getTime();
-		}*/
 	    }
 	});
 	exec(scheduleForegroundSync, null, "BackgroundSync", "getBestForegroundSyncTime", []);
