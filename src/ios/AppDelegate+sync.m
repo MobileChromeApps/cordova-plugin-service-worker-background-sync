@@ -35,5 +35,4 @@ CDVBackgroundSync *backgroundSync;
 - (void)application:(UIApplication *)application performFetchWithCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler{
     [backgroundSync fetchNewDataWithCompletionHandler:completionHandler];
 }
-
 @end

@@ -23,6 +23,11 @@
 #import <JavaScriptCore/JavaScriptCore.h>
 
 NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
+NSString * const REGISTRATION_LIST_MEAN_STORAGE_KEY = @"registrationListMean";
+NSString * const REGISTRATION_LIST_STD_DEV_STORAGE_KEY = @"registrationListStdDev";
+
+NSNumber *mean;
+NSNumber *stdDev;
 
 @implementation CDVBackgroundSync
 
@@ -38,6 +43,14 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     if (restored != nil) {
         registrationList = restored;
     }
+    NSNumber * temp = [defaults objectForKey:REGISTRATION_LIST_MEAN_STORAGE_KEY];
+    if (temp != nil) {
+        mean = temp;
+    }
+    temp = [defaults objectForKey:REGISTRATION_LIST_STD_DEV_STORAGE_KEY];
+    if (temp != nil) {
+        stdDev = temp;
+    }
 }
 
 - (void)initBackgroundSync:(CDVInvokedUrlCommand*)command
@@ -45,6 +58,7 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     //TODO: Find a better place to run this setup
     [self syncResponseSetup];
     [self unregisterSetup];
+    [self networkCheckSetup];
     
     self.syncCheckCallback = command.callbackId;
     NSLog(@"register %@", syncCheckCallback);
@@ -60,10 +74,19 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     } else {
         [registrationList setObject:[command argumentAtIndex:0] forKey:[[command argumentAtIndex:0] objectForKey:@"id"]];
     }
+    NSLog(@"Registering %@", [[command argumentAtIndex:0] objectForKey:@"id"]);
+    
+    //Recalculate the mean and standard devs of time
+    [self setMeanRegistrationTimePlusDelay:[registrationList allValues]];
+    [self setStandardDeviationRegistrationArray:[registrationList allValues] withMean:mean];
+    
     //Save the list
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
+    [defaults setObject:mean forKey:REGISTRATION_LIST_MEAN_STORAGE_KEY];
+    [defaults setObject:stdDev forKey:REGISTRATION_LIST_STD_DEV_STORAGE_KEY];
     [defaults synchronize];
+    
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
@@ -99,23 +122,33 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     
     // Set up service worker unregister event
     serviceWorker.context[@"unregisterSync"] = ^(JSValue *registrationId) {
-        NSLog(@"Unregistering %@", registrationId);
-        NSString *regId = [registrationId toString];
-        
-        [weakSelf.registrationList removeObjectForKey:regId];
-        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-        [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
-        [defaults synchronize];
+        [weakSelf unregisterSyncById:[registrationId toString]];
     };
 }
 
 - (void)unregister:(CDVInvokedUrlCommand*)command
 {
-    NSLog(@"Unregistered %@ without syncing", [command argumentAtIndex:0]);
-    [registrationList removeObjectForKey:[command argumentAtIndex:0]];
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
-    [defaults synchronize];
+    [self unregisterSyncById:[command argumentAtIndex:0]];
+}
+
+- (void)unregisterSyncById:(NSString*)id
+{
+    if ([registrationList objectForKey:id]) {
+        NSLog(@"Unregistering %@", id);
+        [registrationList removeObjectForKey:id];
+        
+        //Recalculate the mean and standard devs of time
+        [self setMeanRegistrationTimePlusDelay:[registrationList allValues]];
+        [self setStandardDeviationRegistrationArray:[registrationList allValues] withMean:mean];
+        
+        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+        [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
+        [defaults setObject:mean forKey:REGISTRATION_LIST_MEAN_STORAGE_KEY];
+        [defaults setObject:stdDev forKey:REGISTRATION_LIST_STD_DEV_STORAGE_KEY];
+        [defaults synchronize];
+    } else {
+        NSLog(@"Could not find %@ to unregister", id);
+    }
 }
 
 - (void)syncResponseSetup
@@ -123,23 +156,59 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     //create weak reference to self in order to prevent retain cycle in block
     __weak CDVBackgroundSync* weakSelf = self;
     
-    serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType) {
-        
+    //Indicate to OS success or failure and unregister syncs that have been successfully executed and are not periodic
+    serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType, JSValue *regId) {
+        UIBackgroundFetchResult result = UIBackgroundFetchResultNewData;
         //Response Type: 0 = New Data, 1 = No Data, 2 = Failed to Fetch
-        if (weakSelf.completionHandler) {
-            if ([responseType toInt32] == 0) {
-                NSLog(@"Got new data");
-                weakSelf.completionHandler(UIBackgroundFetchResultNewData);
-            } else if ([responseType toInt32] == 1) {
-                NSLog(@"Got no data");
-                weakSelf.completionHandler(UIBackgroundFetchResultNoData);
-            } else if ([responseType toInt32] == 2) {
-                NSLog(@"Failed to get data");
-                weakSelf.completionHandler(UIBackgroundFetchResultFailed);
+        if ([responseType toInt32] == 0) {
+            result = UIBackgroundFetchResultNewData;
+            NSNumber* minPeriod = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"];
+            if (minPeriod.integerValue == 0) {
+                [weakSelf unregisterSyncById:[regId toString]];
+            } else {
+                NSLog(@"Reregistering %@", [regId toString]);
+                // If the event is periodic, then replace its minDelay with its minPeriod and reTimestamp it
+                [[weakSelf.registrationList objectForKey:[regId toString]] setValue:[[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"] forKey:@"minDelay"];
+                NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
+                time = @(time.doubleValue * 1000);
+                [[weakSelf.registrationList objectForKey:[regId toString]] setValue:time forKey:@"time"];
             }
+        } else if ([responseType toInt32] == 1) {
+            NSLog(@"Got no data");
+            result = UIBackgroundFetchResultNoData;
+        } else if ([responseType toInt32] == 2) {
+            NSLog(@"Failed to get data");
+            result = UIBackgroundFetchResultFailed;
+            
+            //Create a backoff by re-time stamping the registration
+            NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
+            time = @(time.doubleValue * 1000);
+            [[weakSelf.registrationList objectForKey:[regId toString]] setValue:time forKey:@"time"];
+        }
+        if (weakSelf.completionHandler) {
+            NSLog(@"Executing Completion Handler");
+            weakSelf.completionHandler(result);
             weakSelf.completionHandler = nil;
         }
     };
+}
+
+
+
+- (void)networkCheckSetup
+{
+    Reachability* reach = [Reachability reachabilityForInternetConnection];
+    reach.reachableBlock = ^(Reachability*reach)
+    {
+        NSLog(@"Regained network");
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"notIdle"];
+        [result setKeepCallback:[NSNumber numberWithBool:YES]];
+        [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
+    };
+    reach.unreachableBlock = ^(Reachability*reach) {
+        NSLog(@"Lost Connection");
+    };
+    [reach startNotifier];
 }
 
 - (void)fetchNewDataWithCompletionHandler:(Completion)handler
@@ -155,14 +224,16 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
 
 - (void)dispatchSyncEvent:(CDVInvokedUrlCommand*)command
 {
-    //[[self.serviceWorker context] evaluateScript:@"dispatchEvent(new ExtendableEvent('sync'));"];
-    NSString *message = [command argumentAtIndex:0];
-    
-    // If we need all of the object properties
-    NSError *error;
-    NSData *json = [NSJSONSerialization dataWithJSONObject:message options:0 error:&error];
-    NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(JSON.parse('%@'));", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
-    [serviceWorker.context evaluateScript:dispatchCode];
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
+        //[[self.serviceWorker context] evaluateScript:@"dispatchEvent(new ExtendableEvent('sync'));"];
+        NSString *message = [command argumentAtIndex:0];
+        
+        // If we need all of the object properties
+        NSError *error;
+        NSData *json = [NSJSONSerialization dataWithJSONObject:message options:0 error:&error];
+        NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(JSON.parse('%@'));", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
+        [serviceWorker.context evaluateScript:dispatchCode];
+    });
 }
 
 - (void)getNetworkStatus:(CDVInvokedUrlCommand*)command
@@ -171,6 +242,90 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
     [reach startNotifier];
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:[reach currentReachabilityStatus]];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    [reach stopNotifier];
+}
+
+- (NetworkStatus)getNetworkStatus
+{
+    Reachability* reach = [Reachability reachabilityForInternetConnection];
+    [reach startNotifier];
+    return [reach currentReachabilityStatus];
+}
+
+- (void)getBestForegroundSyncTime:(CDVInvokedUrlCommand*)command
+{
+    NSArray* registrations = [registrationList allValues];
+    NSNumber *latestTime;
+    NSNumber *bestTime = 0;
+    NSNumber *time;
+    NSNumber *maxDelay;
+    NSNumber *minDelay;
+    BOOL haveMax = NO;
+    if (registrations.count == 0) {
+        NSLog(@"No Registrations to Schedule");
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Registrations to Schedule"];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+        return;
+    }
+    // Get the latest time without having a sync registration expire
+    for (NSInteger i = 0; i < [registrations count]; i++) {
+        time = [registrations[i] valueForKey:@"time"];
+        maxDelay = [registrations[i] valueForKey:@"maxDelay"];
+        if ((((time.integerValue + maxDelay.integerValue) < latestTime.integerValue) || latestTime == nil) && (maxDelay.integerValue != 0)) {
+            haveMax = YES;
+            latestTime = @(time.integerValue + maxDelay.integerValue);
+        }
+    }
+    // Find the time at which we have met the maximum min delays without exceding latestTime
+    for (NSInteger i = 0; i < [registrations count]; i++) {
+        time = [registrations[i] valueForKey:@"time"];
+        minDelay = [registrations[i] valueForKey:@"minDelay"];
+        if ((!haveMax || (time.integerValue + minDelay.integerValue < latestTime.integerValue)) && time.integerValue + minDelay.integerValue > bestTime.integerValue) {
+            //Ensure no super long wait due to outliers by only including times that are 1/2 standard deviation above the mean, and below
+            if (time.integerValue + minDelay.integerValue <= mean.doubleValue + stdDev.doubleValue/2) {
+                //Also ensure we're not taking into account registrations that require internet when we are not connected
+                NSNumber *networkStatus = [registrations[i] valueForKey:@"minRequiredNetwork"];
+                if ([self getNetworkStatus] >= networkStatus.integerValue) {
+                    bestTime = @(time.integerValue + minDelay.integerValue);
+                }
+            }
+        }
+    }
+    if (bestTime == 0) {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No viable registration to schedule"];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    } else {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDouble:[bestTime integerValue]];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    }
+}
+
+// Helper function for choosing best foreground sync time
+-(void)setMeanRegistrationTimePlusDelay:(NSArray*)array
+{
+    NSNumber *time;
+    NSNumber *minDelay;
+    NSNumber *total = [NSNumber numberWithDouble:0];
+    for (NSInteger i = 0; i < [array count]; i++) {
+        time = [array[i] valueForKey:@"time"];
+        minDelay = [array[i] valueForKey:@"minDelay"];
+        total = @(total.doubleValue + time.doubleValue + minDelay.doubleValue);
+    }
+    mean = @(total.doubleValue / [array count]);
+}
+
+-(void)setStandardDeviationRegistrationArray:(NSArray*)array withMean:(NSNumber*)mean
+{
+    NSNumber *time;
+    NSNumber *minDelay;
+    NSNumber *variance;
+    for (NSInteger i = 0; i < [array count]; i++) {
+        time = [array[i] valueForKey:@"time"];
+        minDelay = [array[i] valueForKey:@"minDelay"];
+        variance = @(variance.doubleValue + pow((time.doubleValue + minDelay.doubleValue) - mean.doubleValue, 2));
+    }
+    variance = @(variance.doubleValue / [array count]);
+    stdDev = [NSNumber numberWithDouble:sqrt(variance.doubleValue)];
 }
 @end
 

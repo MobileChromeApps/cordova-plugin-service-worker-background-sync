@@ -1,24 +1,23 @@
 var exec = require('cordova/exec');
 var serviceWorker = require('org.apache.cordova.serviceworker.ServiceWorker');
 
-//List of all current SyncManager Registrations. Kept outside of object so that it is not exposed
 var networkStatus;
 var isIdle = false;
+var timeoutTracker = null;
 
 // Checks to see if the criteria have been met for this registration
 // Currently Supported Options:
-// id, minDelay, minRequiredNetwork, idleRequired, maxDelay
-// Todo: allowOnBattery, minPeriod
+// id, minDelay, minRequiredNetwork, idleRequired, maxDelay, minPeriod
+// Todo: allowOnBattery
 var checkSyncRegistration = function(registration) {
-    console.log(registration);
-    if(registration.maxDelay != 0 && ((new Date()).getTime() - registration.maxDelay > registration.time)) {
+    if (registration.maxDelay != 0 && ((new Date()).getTime() - registration.maxDelay > registration.time)) {
 	exec(null, null, "BackgroundSync", "unregister", [registration.id]);
 	return false;
     }
-    if(registration.idleRequired && !isIdle) {
+    if (registration.idleRequired && !isIdle) {
 	return false;
     }
-    if(registration.hasBeenExecuted) {
+    if (registration.hasBeenExecuted) {
 	if ((new Date()).getTime() - registration.minPeriod < registration.time) {
 	    return false;
 	}
@@ -29,27 +28,21 @@ var checkSyncRegistration = function(registration) {
 	return false;
     }
     return true;
-}
+};
 
-// Function to be called Asynchronously to resolve registrations
 var resolveRegistrations = function(connectionType) {
     //Update the connection
     networkStatus = connectionType;
     var inner = function(regs) {
-	var bEventDispatched = false;
-	regs.forEach(function(reg){
+	regs.forEach(function(reg) {
 	    if (checkSyncRegistration(reg)) {
 		exec(null, null, "BackgroundSync", "dispatchSyncEvent", [reg]);
-		bEventDispatched = true;
-		/*if (regs[i].minPeriod != 0) {
-		    regs[i].hasBeenExecuted = true;
-		    regs[i].time = (new Date()).getTime();
-		}*/
 	    }
 	});
+	exec(scheduleForegroundSync, null, "BackgroundSync", "getBestForegroundSyncTime", []);
     }
     exec(inner, null, "BackgroundSync", "getRegistrations", []);
-}
+};
 
 // We use this function so there are no side effects if the original options reference is modified
 // and to make sure that all of the settings are within their defined limits
@@ -82,32 +75,47 @@ var cloneOptions = function(toClone) {
     // Timestamp the registration
     options.time = (new Date()).getTime();
     return options;
-}
+};
 
 var syncCheck = function(message) {
     console.log("syncCheck");
-    if(message === "idle") {
+    if (message === "idle") {
 	isIdle = true;
     } else {
 	isIdle = false;
     }
     //Check the network status and then resolve registrations
     exec(resolveRegistrations, null, "BackgroundSync", "getNetworkStatus", []);
-}
+};
+
+var scheduleForegroundSync = function(time) {
+    if (timeoutTracker != null) {
+	clearTimeout(timeoutTracker);
+    }
+    timeoutTracker = setTimeout(function() {
+	syncCheck("notIdle");
+    }, time - (new Date()).getTime());
+    console.log("Scheduling Foreground Sync for: " + time);
+};
 
 SyncManager = function() {
     return this;
 };
 
 SyncManager.prototype.register = function(SyncRegistrationOptions) {
-    console.log("Registering Sync");
     var options = cloneOptions(SyncRegistrationOptions);
     return new Promise(function(resolve,reject) {
 	var innerSuccess = function() {
-	    exec(syncCheck, null, "BackgroundSync", "register", [options]);
-	    resolve(options);
+	    var innerContinue = function() {
+		// Find the time for the next foreground sync
+		exec(scheduleForegroundSync, null, "BackgroundSync", "getBestForegroundSyncTime", []);
+		resolve(options);
+	    };
+	    exec(innerContinue, null, "BackgroundSync", "register", [options]);
+	    console.log("Registering " + options.id);
 	};
 	var innerFail = function() {
+	    console.log("Failed to register " + options.id);
 	    reject(options); 
 	};
 
