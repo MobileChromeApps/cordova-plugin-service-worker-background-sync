@@ -246,17 +246,32 @@ NSNumber *stdDev;
     [reach startNotifier];
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:[reach currentReachabilityStatus]];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    [reach stopNotifier];
+}
+
+- (NetworkStatus)getNetworkStatus
+{
+    Reachability* reach = [Reachability reachabilityForInternetConnection];
+    [reach startNotifier];
+    return [reach currentReachabilityStatus];
 }
 
 - (void)getBestForegroundSyncTime:(CDVInvokedUrlCommand*)command
 {
     NSArray* registrations = [registrationList allValues];
     NSNumber *latestTime;
-    NSNumber *bestTime = [registrations[0] valueForKey:@"time"];
+    NSNumber *bestTime = 0;
     NSNumber *time;
     NSNumber *maxDelay;
     NSNumber *minDelay;
     BOOL haveMax = NO;
+    
+    if (registrations.count == 0) {
+        NSLog(@"No Registrations to Schedule");
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Registrations to Schedule"];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+        return;
+    }
     
     // Get the latest time without having a sync registration expire
     for (NSInteger i = 0; i < [registrations count]; i++) {
@@ -275,12 +290,22 @@ NSNumber *stdDev;
         if((!haveMax || (time.integerValue + minDelay.integerValue < latestTime.integerValue)) && time.integerValue + minDelay.integerValue > bestTime.integerValue) {
             //Ensure no super long wait due to outliers by only including times that are 1/2 standard deviation above the mean, and below
             if (time.integerValue + minDelay.integerValue <= mean.doubleValue + stdDev.doubleValue/2) {
-                bestTime = @(time.integerValue + minDelay.integerValue);
+                //Also ensure we're not taking into account registrations that require internet when we are not connected
+                NSNumber *networkStatus = [registrations[i] valueForKey:@"minRequiredNetwork"];
+                if ([self getNetworkStatus] >= networkStatus.integerValue) {
+                    bestTime = @(time.integerValue + minDelay.integerValue);
+                }
             }
         }
     }
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDouble:[bestTime integerValue]];
-    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    
+    if (bestTime == 0) {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No viable registration to schedule"];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    } else {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDouble:[bestTime integerValue]];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    }
 }
 
 // Helper function for choosing best foreground sync time
