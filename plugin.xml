@@ -12,9 +12,6 @@
     <js-module src="www/SyncManager.js" name="SyncManager">
 	<clobbers target="SyncManager" />
     </js-module>
-    <js-module src="www/BackgroundSync.js" name="BackgroundSync">
-	<clobbers target="BackgroundSync" />
-    </js-module>
     <js-module src="www/SyncRegistration.js" name="SyncRegistration">
 	<clobbers target="SyncRegistration" />
     </js-module>

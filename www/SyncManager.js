@@ -36,7 +36,6 @@ var resolveRegistrations = function(connectionType) {
     var inner = function(regs) {
 	regs.forEach(function(reg){
 	    if (checkSyncRegistration(reg)) {
-		console.log("Resolving " + reg.id);
 		exec(null, null, "BackgroundSync", "dispatchSyncEvent", [reg]);
 	    }
 	});
@@ -107,11 +106,13 @@ SyncManager.prototype.register = function(SyncRegistrationOptions) {
     var options = cloneOptions(SyncRegistrationOptions);
     return new Promise(function(resolve,reject) {
 	var innerSuccess = function() {
-	    exec(syncCheck, null, "BackgroundSync", "register", [options]);
+	    var innerContinue = function() {
+		// Find the time for the next foreground sync
+		exec(scheduleForegroundSync, null, "BackgroundSync", "getBestForegroundSyncTime", []);
+		resolve(options);
+	    };
+	    exec(innerContinue, null, "BackgroundSync", "register", [options]);
 	    console.log("Registering " + options.id);
-	    // Find the time for the next foreground sync
-	    exec(scheduleForegroundSync, null, "BackgroundSync", "getBestForegroundSyncTime", []);
-	    resolve(options);
 	};
 	var innerFail = function() {
 	    console.log("Failed to register " + options.id);

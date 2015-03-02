@@ -158,37 +158,37 @@ NSNumber *stdDev;
     
     //Indicate to OS success or failure and unregister syncs that have been successfully executed and are not periodic
     serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType, JSValue *regId) {
+        UIBackgroundFetchResult result = UIBackgroundFetchResultNewData;
+        
         
         //Response Type: 0 = New Data, 1 = No Data, 2 = Failed to Fetch
-        if (weakSelf.completionHandler) {
-            if ([responseType toInt32] == 0) {
-                NSLog(@"Got new data");
-                weakSelf.completionHandler(UIBackgroundFetchResultNewData);
-                if ([[[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"] toNumber] == 0) {
-                    [weakSelf unregisterSyncById:[regId toString]];
-                }
-            } else if ([responseType toInt32] == 1) {
-                NSLog(@"Got no data");
-                weakSelf.completionHandler(UIBackgroundFetchResultNoData);
-            } else if ([responseType toInt32] == 2) {
-                NSLog(@"Failed to get data");
-                weakSelf.completionHandler(UIBackgroundFetchResultFailed);
+        
+        if ([responseType toInt32] == 0) {
+            result = UIBackgroundFetchResultNewData;
+            NSNumber* thing = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"];
+            if (thing.integerValue == 0) {
+                [weakSelf unregisterSyncById:[regId toString]];
+            } else {
+                NSLog(@"Reregistering %@", [regId toString]);
+                // If the event is periodic, then replace its minDelay with its minPeriod and reTimestamp it
+                [[weakSelf.registrationList objectForKey:[regId toString]] setValue:[[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"] forKey:@"minDelay"];
+                NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
+                time = @(time.doubleValue * 1000);
+                [[weakSelf.registrationList objectForKey:[regId toString]] setValue:time forKey:@"time"];
             }
+        } else if ([responseType toInt32] == 1) {
+            NSLog(@"Got no data");
+            result = UIBackgroundFetchResultNoData;
+        } else if ([responseType toInt32] == 2) {
+            NSLog(@"Failed to get data");
+            result = UIBackgroundFetchResultFailed;
+            
+            //Create a backoff by re-time stamping the registration
+        }
+        if(weakSelf.completionHandler){
+            NSLog(@"Executing Completion Handler");
+            weakSelf.completionHandler(result);
             weakSelf.completionHandler = nil;
-        } else {
-            if ([responseType toInt32] == 0) {
-                NSNumber *thing = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"];
-                if (thing.integerValue  == 0) {
-                    [weakSelf unregisterSyncById:[regId toString]];
-                } else {
-                    NSLog(@"Reregistering %@", [regId toString]);
-                    // If the event is periodic, then replace its minDelay with its minPeriod and reTimestamp it
-                    [[weakSelf.registrationList objectForKey:[regId toString]] setValue:[[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"] forKey:@"minDelay"];
-                    NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
-                    time = @(time.doubleValue * 1000);
-                    [[weakSelf.registrationList objectForKey:[regId toString]] setValue:time forKey:@"time"];
-                }
-            }
         }
     };
 }
