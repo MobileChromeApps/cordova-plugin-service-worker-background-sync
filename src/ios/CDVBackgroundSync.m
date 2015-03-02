@@ -26,8 +26,12 @@ NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
 NSString * const REGISTRATION_LIST_MEAN_STORAGE_KEY = @"registrationListMean";
 NSString * const REGISTRATION_LIST_STD_DEV_STORAGE_KEY = @"registrationListStdDev";
 
+UIBackgroundFetchResult fetchResult = UIBackgroundFetchResultNoData;
+
 NSNumber *mean;
 NSNumber *stdDev;
+NSNumber *dispatchedSyncs;
+NSNumber *completedSyncs;
 
 @implementation CDVBackgroundSync
 
@@ -158,10 +162,16 @@ NSNumber *stdDev;
     
     //Indicate to OS success or failure and unregister syncs that have been successfully executed and are not periodic
     serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType, JSValue *regId) {
-        UIBackgroundFetchResult result = UIBackgroundFetchResultNewData;
+        if (completedSyncs == nil) {
+            completedSyncs = [NSNumber numberWithInteger:0];
+        }
+        completedSyncs = @(completedSyncs.integerValue + 1);
+        
         //Response Type: 0 = New Data, 1 = No Data, 2 = Failed to Fetch
         if ([responseType toInt32] == 0) {
-            result = UIBackgroundFetchResultNewData;
+            if (fetchResult != UIBackgroundFetchResultFailed) {
+                fetchResult = UIBackgroundFetchResultNewData;
+            }
             NSNumber* minPeriod = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"];
             if (minPeriod.integerValue == 0) {
                 [weakSelf unregisterSyncById:[regId toString]];
@@ -175,20 +185,28 @@ NSNumber *stdDev;
             }
         } else if ([responseType toInt32] == 1) {
             NSLog(@"Got no data");
-            result = UIBackgroundFetchResultNoData;
         } else if ([responseType toInt32] == 2) {
             NSLog(@"Failed to get data");
-            result = UIBackgroundFetchResultFailed;
+            fetchResult = UIBackgroundFetchResultFailed;
             
             //Create a backoff by re-time stamping the registration
             NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
             time = @(time.doubleValue * 1000);
             [[weakSelf.registrationList objectForKey:[regId toString]] setValue:time forKey:@"time"];
         }
-        if (weakSelf.completionHandler) {
-            NSLog(@"Executing Completion Handler");
-            weakSelf.completionHandler(result);
-            weakSelf.completionHandler = nil;
+        
+        // Make sure we received all the syncs before determining completion
+        if (completedSyncs.integerValue == dispatchedSyncs.integerValue) {
+            if (weakSelf.completionHandler) {
+                NSLog(@"Executing Completion Handler");
+                weakSelf.completionHandler(fetchResult);
+                weakSelf.completionHandler = nil;
+            }
+            
+            // Reset the sync count
+            completedSyncs = [NSNumber numberWithInteger:0];
+            dispatchedSyncs = [NSNumber numberWithInteger:0];
+            fetchResult = UIBackgroundFetchResultNoData;
         }
     };
 }
@@ -224,6 +242,12 @@ NSNumber *stdDev;
 
 - (void)dispatchSyncEvent:(CDVInvokedUrlCommand*)command
 {
+    //Increment the counter of dispatched syncs
+    if (dispatchedSyncs == nil) {
+        dispatchedSyncs = [NSNumber numberWithInteger:0];
+    }
+    dispatchedSyncs = @(dispatchedSyncs.integerValue + 1);
+    
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
         //[[self.serviceWorker context] evaluateScript:@"dispatchEvent(new ExtendableEvent('sync'));"];
         NSString *message = [command argumentAtIndex:0];
