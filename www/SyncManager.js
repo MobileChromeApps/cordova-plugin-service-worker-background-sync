@@ -7,17 +7,17 @@ var timeoutTracker = null;
 
 // Checks to see if the criteria have been met for this registration
 // Currently Supported Options:
-// id, minDelay, minRequiredNetwork, idleRequired, maxDelay
-// Todo: allowOnBattery, minPeriod
+// id, minDelay, minRequiredNetwork, idleRequired, maxDelay, minPeriod
+// Todo: allowOnBattery
 var checkSyncRegistration = function(registration) {
-    if(registration.maxDelay != 0 && ((new Date()).getTime() - registration.maxDelay > registration.time)) {
+    if (registration.maxDelay != 0 && ((new Date()).getTime() - registration.maxDelay > registration.time)) {
 	exec(null, null, "BackgroundSync", "unregister", [registration.id]);
 	return false;
     }
-    if(registration.idleRequired && !isIdle) {
+    if (registration.idleRequired && !isIdle) {
 	return false;
     }
-    if(registration.hasBeenExecuted) {
+    if (registration.hasBeenExecuted) {
 	if ((new Date()).getTime() - registration.minPeriod < registration.time) {
 	    return false;
 	}
@@ -28,13 +28,13 @@ var checkSyncRegistration = function(registration) {
 	return false;
     }
     return true;
-}
+};
 
 var resolveRegistrations = function(connectionType) {
     //Update the connection
     networkStatus = connectionType;
     var inner = function(regs) {
-	regs.forEach(function(reg){
+	regs.forEach(function(reg) {
 	    if (checkSyncRegistration(reg)) {
 		exec(null, null, "BackgroundSync", "dispatchSyncEvent", [reg]);
 	    }
@@ -42,7 +42,7 @@ var resolveRegistrations = function(connectionType) {
 	exec(scheduleForegroundSync, null, "BackgroundSync", "getBestForegroundSyncTime", []);
     }
     exec(inner, null, "BackgroundSync", "getRegistrations", []);
-}
+};
 
 // We use this function so there are no side effects if the original options reference is modified
 // and to make sure that all of the settings are within their defined limits
@@ -75,18 +75,18 @@ var cloneOptions = function(toClone) {
     // Timestamp the registration
     options.time = (new Date()).getTime();
     return options;
-}
+};
 
 var syncCheck = function(message) {
     console.log("syncCheck");
-    if(message === "idle") {
+    if (message === "idle") {
 	isIdle = true;
     } else {
 	isIdle = false;
     }
     //Check the network status and then resolve registrations
     exec(resolveRegistrations, null, "BackgroundSync", "getNetworkStatus", []);
-}
+};
 
 var scheduleForegroundSync = function(time) {
     if (timeoutTracker != null) {

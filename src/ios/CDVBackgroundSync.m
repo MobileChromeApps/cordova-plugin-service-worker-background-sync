@@ -133,7 +133,7 @@ NSNumber *stdDev;
 
 - (void)unregisterSyncById:(NSString*)id
 {
-    if ([registrationList objectForKey:id]){
+    if ([registrationList objectForKey:id]) {
         NSLog(@"Unregistering %@", id);
         [registrationList removeObjectForKey:id];
         
@@ -159,14 +159,11 @@ NSNumber *stdDev;
     //Indicate to OS success or failure and unregister syncs that have been successfully executed and are not periodic
     serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType, JSValue *regId) {
         UIBackgroundFetchResult result = UIBackgroundFetchResultNewData;
-        
-        
         //Response Type: 0 = New Data, 1 = No Data, 2 = Failed to Fetch
-        
         if ([responseType toInt32] == 0) {
             result = UIBackgroundFetchResultNewData;
-            NSNumber* thing = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"];
-            if (thing.integerValue == 0) {
+            NSNumber* minPeriod = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"];
+            if (minPeriod.integerValue == 0) {
                 [weakSelf unregisterSyncById:[regId toString]];
             } else {
                 NSLog(@"Reregistering %@", [regId toString]);
@@ -184,8 +181,11 @@ NSNumber *stdDev;
             result = UIBackgroundFetchResultFailed;
             
             //Create a backoff by re-time stamping the registration
+            NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
+            time = @(time.doubleValue * 1000);
+            [[weakSelf.registrationList objectForKey:[regId toString]] setValue:time forKey:@"time"];
         }
-        if(weakSelf.completionHandler){
+        if (weakSelf.completionHandler) {
             NSLog(@"Executing Completion Handler");
             weakSelf.completionHandler(result);
             weakSelf.completionHandler = nil;
@@ -198,7 +198,6 @@ NSNumber *stdDev;
 - (void)networkCheckSetup
 {
     Reachability* reach = [Reachability reachabilityForInternetConnection];
-    
     reach.reachableBlock = ^(Reachability*reach)
     {
         NSLog(@"Regained network");
@@ -206,11 +205,9 @@ NSNumber *stdDev;
         [result setKeepCallback:[NSNumber numberWithBool:YES]];
         [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
     };
-    
-    reach.unreachableBlock = ^(Reachability*reach){
+    reach.unreachableBlock = ^(Reachability*reach) {
         NSLog(@"Lost Connection");
     };
-    
     [reach startNotifier];
 }
 
@@ -227,7 +224,7 @@ NSNumber *stdDev;
 
 - (void)dispatchSyncEvent:(CDVInvokedUrlCommand*)command
 {
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void){
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
         //[[self.serviceWorker context] evaluateScript:@"dispatchEvent(new ExtendableEvent('sync'));"];
         NSString *message = [command argumentAtIndex:0];
         
@@ -237,7 +234,6 @@ NSNumber *stdDev;
         NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(JSON.parse('%@'));", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
         [serviceWorker.context evaluateScript:dispatchCode];
     });
-    
 }
 
 - (void)getNetworkStatus:(CDVInvokedUrlCommand*)command
@@ -265,14 +261,12 @@ NSNumber *stdDev;
     NSNumber *maxDelay;
     NSNumber *minDelay;
     BOOL haveMax = NO;
-    
     if (registrations.count == 0) {
         NSLog(@"No Registrations to Schedule");
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Registrations to Schedule"];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
         return;
     }
-    
     // Get the latest time without having a sync registration expire
     for (NSInteger i = 0; i < [registrations count]; i++) {
         time = [registrations[i] valueForKey:@"time"];
@@ -282,12 +276,11 @@ NSNumber *stdDev;
             latestTime = @(time.integerValue + maxDelay.integerValue);
         }
     }
-    
     // Find the time at which we have met the maximum min delays without exceding latestTime
     for (NSInteger i = 0; i < [registrations count]; i++) {
         time = [registrations[i] valueForKey:@"time"];
         minDelay = [registrations[i] valueForKey:@"minDelay"];
-        if((!haveMax || (time.integerValue + minDelay.integerValue < latestTime.integerValue)) && time.integerValue + minDelay.integerValue > bestTime.integerValue) {
+        if ((!haveMax || (time.integerValue + minDelay.integerValue < latestTime.integerValue)) && time.integerValue + minDelay.integerValue > bestTime.integerValue) {
             //Ensure no super long wait due to outliers by only including times that are 1/2 standard deviation above the mean, and below
             if (time.integerValue + minDelay.integerValue <= mean.doubleValue + stdDev.doubleValue/2) {
                 //Also ensure we're not taking into account registrations that require internet when we are not connected
@@ -298,7 +291,6 @@ NSNumber *stdDev;
             }
         }
     }
-    
     if (bestTime == 0) {
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No viable registration to schedule"];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
