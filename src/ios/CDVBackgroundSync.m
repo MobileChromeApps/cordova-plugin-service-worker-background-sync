@@ -43,7 +43,7 @@ NSNumber *completedSyncs;
 -(void)restoreRegistrations
 {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    NSMutableDictionary *restored = [defaults objectForKey:REGISTRATION_LIST_STORAGE_KEY];
+    NSMutableDictionary *restored = [[defaults objectForKey:REGISTRATION_LIST_STORAGE_KEY] mutableCopy];
     if (restored != nil) {
         registrationList = restored;
     }
@@ -179,12 +179,18 @@ NSNumber *completedSyncs;
             if (minPeriod.integerValue == 0) {
                 [weakSelf unregisterSyncById:[regId toString]];
             } else {
-                NSLog(@"Reregistering %@", [regId toString]);
+                NSMutableDictionary *registration = [[[NSMutableDictionary alloc] initWithDictionary:[weakSelf.registrationList objectForKey:[regId toString]]] mutableCopy];
+                NSLog(@"Reregistering %@", [registration valueForKey:@"id"]);
+                NSNumber *minPeriod = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"];
                 // If the event is periodic, then replace its minDelay with its minPeriod and reTimestamp it
-                [[weakSelf.registrationList objectForKey:[regId toString]] setValue:[[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"] forKey:@"minDelay"];
+                [registration setValue:minPeriod forKey:@"minDelay"];
                 NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
                 time = @(time.doubleValue * 1000);
-                [[weakSelf.registrationList objectForKey:[regId toString]] setValue:time forKey:@"time"];
+                [registration setValue:time forKey:@"time"];
+
+                // Add replace the old registration with the updated one
+                [weakSelf.registrationList setObject:registration forKey:[regId toString]];
+
                 NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
                 [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
                 [defaults synchronize];
