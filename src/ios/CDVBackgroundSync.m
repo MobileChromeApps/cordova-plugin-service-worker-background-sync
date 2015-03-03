@@ -22,8 +22,8 @@
 #import "Reachability.h"
 #import <JavaScriptCore/JavaScriptCore.h>
 
-NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
-NSString * const REGISTRATION_LIST_MIN_STORAGE_KEY = @"registrationListMin";
+NSString * const REGISTRATION_LIST_STORAGE_KEY = @"CDVBackgroundSync_registrationList";
+NSString * const REGISTRATION_LIST_MIN_STORAGE_KEY = @"CDVBackgroundSync_registrationListMin";
 const NSInteger MAX_BATCH_WAIT_TIME = 1000*60*30;
 
 UIBackgroundFetchResult fetchResult = UIBackgroundFetchResultNoData;
