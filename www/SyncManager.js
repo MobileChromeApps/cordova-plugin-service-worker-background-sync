@@ -2,13 +2,13 @@ var exec = require('cordova/exec');
 var serviceWorker = require('org.apache.cordova.serviceworker.ServiceWorker');
 
 var networkStatus;
+var isCharging;
 var isIdle = false;
 var timeoutTracker = null;
 
 // Checks to see if the criteria have been met for this registration
 // Currently Supported Options:
-// id, minDelay, minRequiredNetwork, idleRequired, maxDelay, minPeriod
-// Todo: allowOnBattery
+// id, minDelay, minRequiredNetwork, idleRequired, maxDelay, minPeriod, allowOnBattery
 var checkSyncRegistration = function(registration) {
     if (registration.maxDelay != 0 && ((new Date()).getTime() - registration.maxDelay > registration.time)) {
 	exec(null, null, "BackgroundSync", "unregister", [registration.id]);
@@ -27,12 +27,16 @@ var checkSyncRegistration = function(registration) {
     if (registration.minRequiredNetwork > networkStatus) {
 	return false;
     }
+    if (!isCharging && !registration.allowOnBattery) {
+	return false;
+    }
     return true;
 };
 
-var resolveRegistrations = function(connectionType) {
+var resolveRegistrations = function(statusVars) {
     //Update the connection
-    networkStatus = connectionType;
+    networkStatus = statusVars[0];
+    isCharging = statusVars[1];
     var inner = function(regs) {
 	regs.forEach(function(reg) {
 	    if (checkSyncRegistration(reg)) {
@@ -85,7 +89,7 @@ var syncCheck = function(message) {
 	isIdle = false;
     }
     //Check the network status and then resolve registrations
-    exec(resolveRegistrations, null, "BackgroundSync", "getNetworkStatus", []);
+    exec(resolveRegistrations, null, "BackgroundSync", "getNetworkAndBatteryStatus", []);
 };
 
 var scheduleForegroundSync = function(time) {

@@ -277,13 +277,13 @@ NSNumber *completedSyncs;
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
-- (void)getNetworkStatus:(CDVInvokedUrlCommand*)command
+- (void)getNetworkAndBatteryStatus:(CDVInvokedUrlCommand*)command
 {
-    Reachability* reach = [Reachability reachabilityForInternetConnection];
-    [reach startNotifier];
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:[reach currentReachabilityStatus]];
+    NetworkStatus networkStatus = [self getNetworkStatus];
+    BOOL isCharging = [self isCharging];
+    NSArray *toReturn = [NSArray arrayWithObjects:@(networkStatus),@(isCharging),nil];
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:toReturn];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-    [reach stopNotifier];
 }
 
 - (NetworkStatus)getNetworkStatus
@@ -291,6 +291,15 @@ NSNumber *completedSyncs;
     Reachability* reach = [Reachability reachabilityForInternetConnection];
     [reach startNotifier];
     return [reach currentReachabilityStatus];
+}
+
+- (BOOL)isCharging
+{
+    [[UIDevice currentDevice] setBatteryMonitoringEnabled:YES];
+    if ([[UIDevice currentDevice] batteryState] == UIDeviceBatteryStateCharging) {
+        return YES;
+    }
+    return NO;
 }
 
 - (void)getBestForegroundSyncTime:(CDVInvokedUrlCommand*)command
@@ -324,9 +333,10 @@ NSNumber *completedSyncs;
         if ((!haveMax || (time.integerValue + minDelay.integerValue < latestTime.integerValue)) && time.integerValue + minDelay.integerValue > bestTime.integerValue) {
             //Ensure no super long wait due to outliers by only including times that are 1/2 standard deviation above the mean, and below
             if (time.integerValue + minDelay.integerValue <= mean.doubleValue + stdDev.doubleValue/2) {
-                //Also ensure we're not taking into account registrations that require internet when we are not connected
-                NSNumber *networkStatus = [registrations[i] valueForKey:@"minRequiredNetwork"];
-                if ([self getNetworkStatus] >= networkStatus.integerValue) {
+                //Also ensure we're not taking into account registrations that require internet when we are not connected, or are not allowed on battery when we are not charging
+                NSNumber *minRequiredNetwork = [registrations[i] valueForKey:@"minRequiredNetwork"];
+                BOOL allowOnBattery = [registrations[i] valueForKey:@"allowOnBattery"];
+                if ([self getNetworkStatus] >= minRequiredNetwork.integerValue && (allowOnBattery || [self isCharging])) {
                     bestTime = @(time.integerValue + minDelay.integerValue);
                 }
             }
