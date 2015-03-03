@@ -133,6 +133,9 @@ NSNumber *completedSyncs;
 - (void)unregister:(CDVInvokedUrlCommand*)command
 {
     [self unregisterSyncById:[command argumentAtIndex:0]];
+    
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
 - (void)unregisterSyncById:(NSString*)id
@@ -182,6 +185,12 @@ NSNumber *completedSyncs;
                 NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
                 time = @(time.doubleValue * 1000);
                 [[weakSelf.registrationList objectForKey:[regId toString]] setValue:time forKey:@"time"];
+                NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+                [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
+                [defaults synchronize];
+                //Recalculate the mean and standard devs of time
+                [weakSelf setMeanRegistrationTimePlusDelay:[weakSelf.registrationList allValues]];
+                [weakSelf setStandardDeviationRegistrationArray:[weakSelf.registrationList allValues] withMean:mean];
             }
         } else if ([responseType toInt32] == 1) {
             NSLog(@"Got no data");
@@ -193,6 +202,12 @@ NSNumber *completedSyncs;
             NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
             time = @(time.doubleValue * 1000);
             [[weakSelf.registrationList objectForKey:[regId toString]] setValue:time forKey:@"time"];
+            NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+            [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
+            [defaults synchronize];
+            //Recalculate the mean and standard devs of time
+            [weakSelf setMeanRegistrationTimePlusDelay:[weakSelf.registrationList allValues]];
+            [weakSelf setStandardDeviationRegistrationArray:[weakSelf.registrationList allValues] withMean:mean];
         }
         
         // Make sure we received all the syncs before determining completion
@@ -258,6 +273,8 @@ NSNumber *completedSyncs;
         NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(JSON.parse('%@'));", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
         [serviceWorker.context evaluateScript:dispatchCode];
     });
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
 - (void)getNetworkStatus:(CDVInvokedUrlCommand*)command
