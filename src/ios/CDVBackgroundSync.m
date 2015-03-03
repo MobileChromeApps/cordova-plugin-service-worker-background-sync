@@ -107,6 +107,17 @@ NSNumber *completedSyncs;
     }
 }
 
+- (void)checkIfIdle:(CDVInvokedUrlCommand*)command
+{
+    if (completionHandler != nil) {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    } else {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"notIdle"];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    }
+}
+
 - (void)getRegistrations:(CDVInvokedUrlCommand*)command
 {
     // If we have pre-existing registrations, give them to the javascript side

@@ -97,7 +97,7 @@ var scheduleForegroundSync = function(time) {
 	clearTimeout(timeoutTracker);
     }
     timeoutTracker = setTimeout(function() {
-	syncCheck("notIdle");
+	exec(null, syncCheck, "BackgroundSync", "checkIfIdle", []);
     }, time - (new Date()).getTime());
     console.log("Scheduling Foreground Sync for: " + time);
 };
