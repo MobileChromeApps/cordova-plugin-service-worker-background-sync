@@ -80,17 +80,18 @@ NSNumber *completedSyncs;
     }
     NSLog(@"Registering %@", [[command argumentAtIndex:0] objectForKey:@"id"]);
     
-    //Recalculate the mean and standard devs of time
-    [self setMeanRegistrationTimePlusDelay:[registrationList allValues]];
-    [self setStandardDeviationRegistrationArray:[registrationList allValues] withMean:mean];
-    
-    //Save the list
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
-    [defaults setObject:mean forKey:REGISTRATION_LIST_MEAN_STORAGE_KEY];
-    [defaults setObject:stdDev forKey:REGISTRATION_LIST_STD_DEV_STORAGE_KEY];
-    [defaults synchronize];
-    
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
+        //Recalculate the mean and standard devs of time
+        [self setMeanRegistrationTimePlusDelay:[registrationList allValues]];
+        [self setStandardDeviationRegistrationArray:[registrationList allValues] withMean:mean];
+        
+        //Save the list
+        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+        [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
+        [defaults setObject:mean forKey:REGISTRATION_LIST_MEAN_STORAGE_KEY];
+        [defaults setObject:stdDev forKey:REGISTRATION_LIST_STD_DEV_STORAGE_KEY];
+        [defaults synchronize];
+    });
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
@@ -154,16 +155,17 @@ NSNumber *completedSyncs;
     if ([registrationList objectForKey:id]) {
         NSLog(@"Unregistering %@", id);
         [registrationList removeObjectForKey:id];
-        
-        //Recalculate the mean and standard devs of time
-        [self setMeanRegistrationTimePlusDelay:[registrationList allValues]];
-        [self setStandardDeviationRegistrationArray:[registrationList allValues] withMean:mean];
-        
-        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-        [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
-        [defaults setObject:mean forKey:REGISTRATION_LIST_MEAN_STORAGE_KEY];
-        [defaults setObject:stdDev forKey:REGISTRATION_LIST_STD_DEV_STORAGE_KEY];
-        [defaults synchronize];
+
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
+            //Recalculate the mean and standard devs of time
+            [self setMeanRegistrationTimePlusDelay:[registrationList allValues]];
+            [self setStandardDeviationRegistrationArray:[registrationList allValues] withMean:mean];
+            NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+            [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
+            [defaults setObject:mean forKey:REGISTRATION_LIST_MEAN_STORAGE_KEY];
+            [defaults setObject:stdDev forKey:REGISTRATION_LIST_STD_DEV_STORAGE_KEY];
+            [defaults synchronize];
+        });
     } else {
         NSLog(@"Could not find %@ to unregister", id);
     }
@@ -176,74 +178,73 @@ NSNumber *completedSyncs;
     
     //Indicate to OS success or failure and unregister syncs that have been successfully executed and are not periodic
     serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType, JSValue *regId) {
-        if (completedSyncs == nil) {
-            completedSyncs = [NSNumber numberWithInteger:0];
-        }
-        completedSyncs = @(completedSyncs.integerValue + 1);
-        
-        //Response Type: 0 = New Data, 1 = No Data, 2 = Failed to Fetch
-        if ([responseType toInt32] == 0) {
-            if (fetchResult != UIBackgroundFetchResultFailed) {
-                fetchResult = UIBackgroundFetchResultNewData;
+        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
+            if (completedSyncs == nil) {
+                completedSyncs = [NSNumber numberWithInteger:0];
             }
-            NSNumber* minPeriod = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"];
-            if (minPeriod.integerValue == 0) {
-                [weakSelf unregisterSyncById:[regId toString]];
-            } else {
-                NSMutableDictionary *registration = [[[NSMutableDictionary alloc] initWithDictionary:[weakSelf.registrationList objectForKey:[regId toString]]] mutableCopy];
-                NSLog(@"Reregistering %@", [registration valueForKey:@"id"]);
-                NSNumber *minPeriod = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"];
-                // If the event is periodic, then replace its minDelay with its minPeriod and reTimestamp it
-                [registration setValue:minPeriod forKey:@"minDelay"];
+            completedSyncs = @(completedSyncs.integerValue + 1);
+
+            //Response Type: 0 = New Data, 1 = No Data, 2 = Failed to Fetch
+            if ([responseType toInt32] == 0) {
+                if (fetchResult != UIBackgroundFetchResultFailed) {
+                    fetchResult = UIBackgroundFetchResultNewData;
+                }
+                NSNumber* minPeriod = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"];
+                if (minPeriod.integerValue == 0) {
+                    [weakSelf unregisterSyncById:[regId toString]];
+                } else {
+                    NSMutableDictionary *registration = [[[NSMutableDictionary alloc] initWithDictionary:[weakSelf.registrationList objectForKey:[regId toString]]] mutableCopy];
+                    NSLog(@"Reregistering %@", [registration valueForKey:@"id"]);
+                    NSNumber *minPeriod = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"];
+                    // If the event is periodic, then replace its minDelay with its minPeriod and reTimestamp it
+                    [registration setValue:minPeriod forKey:@"minDelay"];
+                    NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
+                    time = @(time.doubleValue * 1000);
+                    [registration setValue:time forKey:@"time"];
+
+                    // Add replace the old registration with the updated one
+                    [weakSelf.registrationList setObject:registration forKey:[regId toString]];
+                    //Recalculate the mean and standard devs of time
+                    [weakSelf setMeanRegistrationTimePlusDelay:[weakSelf.registrationList allValues]];
+                    [weakSelf setStandardDeviationRegistrationArray:[weakSelf.registrationList allValues] withMean:mean];
+                    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+                    [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
+                    [defaults synchronize];
+                }
+            } else if ([responseType toInt32] == 1) {
+                NSLog(@"Got no data");
+            } else if ([responseType toInt32] == 2) {
+                NSLog(@"Failed to get data");
+                fetchResult = UIBackgroundFetchResultFailed;
+
+                //Create a backoff by re-time stamping the registration
                 NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
                 time = @(time.doubleValue * 1000);
-                [registration setValue:time forKey:@"time"];
-
-                // Add replace the old registration with the updated one
-                [weakSelf.registrationList setObject:registration forKey:[regId toString]];
-
-                NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-                [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
-                [defaults synchronize];
+                [[weakSelf.registrationList objectForKey:[regId toString]] setValue:time forKey:@"time"];
                 //Recalculate the mean and standard devs of time
                 [weakSelf setMeanRegistrationTimePlusDelay:[weakSelf.registrationList allValues]];
                 [weakSelf setStandardDeviationRegistrationArray:[weakSelf.registrationList allValues] withMean:mean];
-            }
-        } else if ([responseType toInt32] == 1) {
-            NSLog(@"Got no data");
-        } else if ([responseType toInt32] == 2) {
-            NSLog(@"Failed to get data");
-            fetchResult = UIBackgroundFetchResultFailed;
-            
-            //Create a backoff by re-time stamping the registration
-            NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
-            time = @(time.doubleValue * 1000);
-            [[weakSelf.registrationList objectForKey:[regId toString]] setValue:time forKey:@"time"];
-            NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-            [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
-            [defaults synchronize];
-            //Recalculate the mean and standard devs of time
-            [weakSelf setMeanRegistrationTimePlusDelay:[weakSelf.registrationList allValues]];
-            [weakSelf setStandardDeviationRegistrationArray:[weakSelf.registrationList allValues] withMean:mean];
-        }
-        
-        // Make sure we received all the syncs before determining completion
-        if (completedSyncs.integerValue == dispatchedSyncs.integerValue) {
-            if (weakSelf.completionHandler) {
-                NSLog(@"Executing Completion Handler");
-                weakSelf.completionHandler(fetchResult);
-                weakSelf.completionHandler = nil;
+                NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+                [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
+                [defaults synchronize];
             }
             
-            // Reset the sync count
-            completedSyncs = [NSNumber numberWithInteger:0];
-            dispatchedSyncs = [NSNumber numberWithInteger:0];
-            fetchResult = UIBackgroundFetchResultNoData;
-        }
+            // Make sure we received all the syncs before determining completion
+            if (completedSyncs.integerValue == dispatchedSyncs.integerValue) {
+                if (weakSelf.completionHandler != nil) {
+                    NSLog(@"Executing Completion Handler");
+                    weakSelf.completionHandler(fetchResult);
+                    weakSelf.completionHandler = nil;
+                }
+
+                // Reset the sync count
+                completedSyncs = [NSNumber numberWithInteger:0];
+                dispatchedSyncs = [NSNumber numberWithInteger:0];
+                fetchResult = UIBackgroundFetchResultNoData;
+            }
+        });
     };
 }
-
-
 
 - (void)networkCheckSetup
 {
@@ -279,7 +280,7 @@ NSNumber *completedSyncs;
         dispatchedSyncs = [NSNumber numberWithInteger:0];
     }
     dispatchedSyncs = @(dispatchedSyncs.integerValue + 1);
-    
+
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
         //[[self.serviceWorker context] evaluateScript:@"dispatchEvent(new ExtendableEvent('sync'));"];
         NSString *message = [command argumentAtIndex:0];
@@ -321,51 +322,54 @@ NSNumber *completedSyncs;
 
 - (void)getBestForegroundSyncTime:(CDVInvokedUrlCommand*)command
 {
-    NSArray* registrations = [registrationList allValues];
-    NSNumber *latestTime;
-    NSNumber *bestTime = 0;
-    NSNumber *time;
-    NSNumber *maxDelay;
-    NSNumber *minDelay;
-    BOOL haveMax = NO;
-    if (registrations.count == 0) {
-        NSLog(@"No Registrations to Schedule");
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Registrations to Schedule"];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-        return;
-    }
-    // Get the latest time without having a sync registration expire
-    for (NSInteger i = 0; i < [registrations count]; i++) {
-        time = [registrations[i] valueForKey:@"time"];
-        maxDelay = [registrations[i] valueForKey:@"maxDelay"];
-        if ((((time.integerValue + maxDelay.integerValue) < latestTime.integerValue) || latestTime == nil) && (maxDelay.integerValue != 0)) {
-            haveMax = YES;
-            latestTime = @(time.integerValue + maxDelay.integerValue);
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void){
+        
+        NSArray* registrations = [registrationList allValues];
+        NSNumber *latestTime;
+        NSNumber *bestTime = 0;
+        NSNumber *time;
+        NSNumber *maxDelay;
+        NSNumber *minDelay;
+        BOOL haveMax = NO;
+        if (registrations.count == 0) {
+            NSLog(@"No Registrations to Schedule");
+            CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Registrations to Schedule"];
+            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+            return;
         }
-    }
-    // Find the time at which we have met the maximum min delays without exceding latestTime
-    for (NSInteger i = 0; i < [registrations count]; i++) {
-        time = [registrations[i] valueForKey:@"time"];
-        minDelay = [registrations[i] valueForKey:@"minDelay"];
-        if ((!haveMax || (time.integerValue + minDelay.integerValue < latestTime.integerValue)) && time.integerValue + minDelay.integerValue > bestTime.integerValue) {
-            //Ensure no super long wait due to outliers by only including times that are 1/2 standard deviation above the mean, and below
-            if (time.integerValue + minDelay.integerValue <= mean.doubleValue + stdDev.doubleValue/2) {
-                //Also ensure we're not taking into account registrations that require internet when we are not connected, or are not allowed on battery when we are not charging
-                NSNumber *minRequiredNetwork = [registrations[i] valueForKey:@"minRequiredNetwork"];
-                BOOL allowOnBattery = [registrations[i] valueForKey:@"allowOnBattery"];
-                if ([self getNetworkStatus] >= minRequiredNetwork.integerValue && (allowOnBattery || [self isCharging])) {
-                    bestTime = @(time.integerValue + minDelay.integerValue);
+        // Get the latest time without having a sync registration expire
+        for (NSInteger i = 0; i < [registrations count]; i++) {
+            time = [registrations[i] valueForKey:@"time"];
+            maxDelay = [registrations[i] valueForKey:@"maxDelay"];
+            if ((((time.integerValue + maxDelay.integerValue) < latestTime.integerValue) || latestTime == nil) && (maxDelay.integerValue != 0)) {
+                haveMax = YES;
+                latestTime = @(time.integerValue + maxDelay.integerValue);
+            }
+        }
+        // Find the time at which we have met the maximum min delays without exceding latestTime
+        for (NSInteger i = 0; i < [registrations count]; i++) {
+            time = [registrations[i] valueForKey:@"time"];
+            minDelay = [registrations[i] valueForKey:@"minDelay"];
+            if ((!haveMax || (time.integerValue + minDelay.integerValue < latestTime.integerValue)) && time.integerValue + minDelay.integerValue > bestTime.integerValue) {
+                //Ensure no super long wait due to outliers by only including times that are 2/3 standard deviation above the mean, and below
+                if (time.integerValue + minDelay.integerValue <= mean.doubleValue + stdDev.doubleValue/1.5) {
+                    //Also ensure we're not taking into account registrations that require internet when we are not connected, or are not allowed on battery when we are not charging
+                    NSNumber *minRequiredNetwork = [registrations[i] valueForKey:@"minRequiredNetwork"];
+                    BOOL allowOnBattery = [registrations[i] valueForKey:@"allowOnBattery"];
+                    if ([self getNetworkStatus] >= minRequiredNetwork.integerValue && (allowOnBattery || [self isCharging])) {
+                        bestTime = @(time.integerValue + minDelay.integerValue);
+                    }
                 }
             }
         }
-    }
-    if (bestTime == 0) {
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No viable registration to schedule"];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-    } else {
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDouble:[bestTime integerValue]];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-    }
+        if (bestTime == 0) {
+            CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No viable registration to schedule"];
+            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+        } else {
+            CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDouble:[bestTime integerValue]];
+            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+        }
+    });
 }
 
 // Helper function for choosing best foreground sync time

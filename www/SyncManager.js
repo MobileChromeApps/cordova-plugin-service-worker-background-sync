@@ -17,11 +17,7 @@ var checkSyncRegistration = function(registration) {
     if (registration.idleRequired && !isIdle) {
 	return false;
     }
-    if (registration.hasBeenExecuted) {
-	if ((new Date()).getTime() - registration.minPeriod < registration.time) {
-	    return false;
-	}
-    } else if ((new Date()).getTime() - registration.minDelay < registration.time) {
+    if ((new Date()).getTime() - registration.minDelay < registration.time) {
 	return false;
     }
     if (registration.minRequiredNetwork > networkStatus) {
@@ -53,7 +49,7 @@ var resolveRegistrations = function(statusVars) {
 var cloneOptions = function(toClone) {
     var options = new SyncRegistration();
     if (toClone.id == null) {
-	// Use Timestamp as unique UUID
+	// Use Timestamp as unique id
 	options.id = "k" + (new Date()).getTime();
     } else {
 	options.id = toClone.id;
