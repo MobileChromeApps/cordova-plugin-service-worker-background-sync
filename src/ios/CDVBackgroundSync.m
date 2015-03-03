@@ -23,13 +23,12 @@
 #import <JavaScriptCore/JavaScriptCore.h>
 
 NSString * const REGISTRATION_LIST_STORAGE_KEY = @"registrationList";
-NSString * const REGISTRATION_LIST_MEAN_STORAGE_KEY = @"registrationListMean";
-NSString * const REGISTRATION_LIST_STD_DEV_STORAGE_KEY = @"registrationListStdDev";
+NSString * const REGISTRATION_LIST_MIN_STORAGE_KEY = @"registrationListMin";
+const NSInteger MAX_BATCH_WAIT_TIME = 1000*60*30;
 
 UIBackgroundFetchResult fetchResult = UIBackgroundFetchResultNoData;
 
-NSNumber *mean;
-NSNumber *stdDev;
+NSNumber *min;
 NSNumber *dispatchedSyncs;
 NSNumber *completedSyncs;
 
@@ -47,13 +46,9 @@ NSNumber *completedSyncs;
     if (restored != nil) {
         registrationList = restored;
     }
-    NSNumber * temp = [defaults objectForKey:REGISTRATION_LIST_MEAN_STORAGE_KEY];
-    if (temp != nil) {
-        mean = temp;
-    }
-    temp = [defaults objectForKey:REGISTRATION_LIST_STD_DEV_STORAGE_KEY];
-    if (temp != nil) {
-        stdDev = temp;
+    NSNumber *restoredMin = [defaults objectForKey:REGISTRATION_LIST_MIN_STORAGE_KEY];
+    if (restoredMin != nil) {
+        min = restoredMin;
     }
 }
 
@@ -81,15 +76,12 @@ NSNumber *completedSyncs;
     NSLog(@"Registering %@", [[command argumentAtIndex:0] objectForKey:@"id"]);
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
-        //Recalculate the mean and standard devs of time
-        [self setMeanRegistrationTimePlusDelay:[registrationList allValues]];
-        [self setStandardDeviationRegistrationArray:[registrationList allValues] withMean:mean];
+        //Recalculate min
+        [self setMin];
         
         //Save the list
         NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
         [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
-        [defaults setObject:mean forKey:REGISTRATION_LIST_MEAN_STORAGE_KEY];
-        [defaults setObject:stdDev forKey:REGISTRATION_LIST_STD_DEV_STORAGE_KEY];
         [defaults synchronize];
     });
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
@@ -157,13 +149,10 @@ NSNumber *completedSyncs;
         [registrationList removeObjectForKey:id];
 
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
-            //Recalculate the mean and standard devs of time
-            [self setMeanRegistrationTimePlusDelay:[registrationList allValues]];
-            [self setStandardDeviationRegistrationArray:[registrationList allValues] withMean:mean];
+            //Recalculate min
+            [self setMin];
             NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
             [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
-            [defaults setObject:mean forKey:REGISTRATION_LIST_MEAN_STORAGE_KEY];
-            [defaults setObject:stdDev forKey:REGISTRATION_LIST_STD_DEV_STORAGE_KEY];
             [defaults synchronize];
         });
     } else {
@@ -204,9 +193,8 @@ NSNumber *completedSyncs;
 
                     // Add replace the old registration with the updated one
                     [weakSelf.registrationList setObject:registration forKey:[regId toString]];
-                    //Recalculate the mean and standard devs of time
-                    [weakSelf setMeanRegistrationTimePlusDelay:[weakSelf.registrationList allValues]];
-                    [weakSelf setStandardDeviationRegistrationArray:[weakSelf.registrationList allValues] withMean:mean];
+                    //Recalculate min
+                    [weakSelf setMin];
                     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
                     [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
                     [defaults synchronize];
@@ -221,9 +209,8 @@ NSNumber *completedSyncs;
                 NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
                 time = @(time.doubleValue * 1000);
                 [[weakSelf.registrationList objectForKey:[regId toString]] setValue:time forKey:@"time"];
-                //Recalculate the mean and standard devs of time
-                [weakSelf setMeanRegistrationTimePlusDelay:[weakSelf.registrationList allValues]];
-                [weakSelf setStandardDeviationRegistrationArray:[weakSelf.registrationList allValues] withMean:mean];
+                // Recalculate min
+                [weakSelf setMin];
                 NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
                 [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
                 [defaults synchronize];
@@ -323,7 +310,6 @@ NSNumber *completedSyncs;
 - (void)getBestForegroundSyncTime:(CDVInvokedUrlCommand*)command
 {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void){
-        
         NSArray* registrations = [registrationList allValues];
         NSNumber *latestTime;
         NSNumber *bestTime = 0;
@@ -351,8 +337,8 @@ NSNumber *completedSyncs;
             time = [registrations[i] valueForKey:@"time"];
             minDelay = [registrations[i] valueForKey:@"minDelay"];
             if ((!haveMax || (time.integerValue + minDelay.integerValue < latestTime.integerValue)) && time.integerValue + minDelay.integerValue > bestTime.integerValue) {
-                //Ensure no super long wait due to outliers by only including times that are 2/3 standard deviation above the mean, and below
-                if (time.integerValue + minDelay.integerValue <= mean.doubleValue + stdDev.doubleValue/1.5) {
+                //Ensure no super long wait due to outliers by only including times within the threshold from the current minimum
+                if ((time.integerValue + minDelay.integerValue - min.integerValue) <= MAX_BATCH_WAIT_TIME) {
                     //Also ensure we're not taking into account registrations that require internet when we are not connected, or are not allowed on battery when we are not charging
                     NSNumber *minRequiredNetwork = [registrations[i] valueForKey:@"minRequiredNetwork"];
                     BOOL allowOnBattery = [registrations[i] valueForKey:@"allowOnBattery"];
@@ -372,32 +358,23 @@ NSNumber *completedSyncs;
     });
 }
 
-// Helper function for choosing best foreground sync time
--(void)setMeanRegistrationTimePlusDelay:(NSArray*)array
+-(void)setMin
 {
-    NSNumber *time;
-    NSNumber *minDelay;
-    NSNumber *total = [NSNumber numberWithDouble:0];
-    for (NSInteger i = 0; i < [array count]; i++) {
-        time = [array[i] valueForKey:@"time"];
-        minDelay = [array[i] valueForKey:@"minDelay"];
-        total = @(total.doubleValue + time.doubleValue + minDelay.doubleValue);
+    NSArray *registrations = [[registrationList allValues] copy];
+    NSNumber *time = [registrations[0] valueForKey:@"time"];
+    NSNumber *minDelay = [registrations[0] valueForKey:@"minDelay"];
+    NSNumber *tempMin = @(time.integerValue + minDelay.integerValue);
+    for (NSInteger i = 1; i < [registrations count]; i++) {
+        time = [registrations[i] valueForKey:@"time"];
+        minDelay = [registrations[i] valueForKey:@"minDelay"];
+        if ((time.integerValue + minDelay.integerValue) < tempMin.integerValue) {
+            tempMin = @(time.integerValue + minDelay.integerValue);
+        }
     }
-    mean = @(total.doubleValue / [array count]);
-}
-
--(void)setStandardDeviationRegistrationArray:(NSArray*)array withMean:(NSNumber*)mean
-{
-    NSNumber *time;
-    NSNumber *minDelay;
-    NSNumber *variance;
-    for (NSInteger i = 0; i < [array count]; i++) {
-        time = [array[i] valueForKey:@"time"];
-        minDelay = [array[i] valueForKey:@"minDelay"];
-        variance = @(variance.doubleValue + pow((time.doubleValue + minDelay.doubleValue) - mean.doubleValue, 2));
-    }
-    variance = @(variance.doubleValue / [array count]);
-    stdDev = [NSNumber numberWithDouble:sqrt(variance.doubleValue)];
+    min = @(tempMin.integerValue);
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    [defaults setObject:self.registrationList forKey:REGISTRATION_LIST_MIN_STORAGE_KEY];
+    [defaults synchronize];
 }
 @end
 
