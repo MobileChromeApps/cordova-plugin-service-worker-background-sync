@@ -362,12 +362,13 @@ NSNumber *completedSyncs;
 -(void)setMin
 {
     NSArray *registrations = [[registrationList allValues] copy];
+    NSDictionary *registration;
     NSNumber *time = [registrations[0] valueForKey:@"time"];
     NSNumber *minDelay = [registrations[0] valueForKey:@"minDelay"];
     NSNumber *tempMin = @(time.integerValue + minDelay.integerValue);
-    for (NSInteger i = 1; i < [registrations count]; i++) {
-        time = [registrations[i] valueForKey:@"time"];
-        minDelay = [registrations[i] valueForKey:@"minDelay"];
+    for (registration in registrations) {
+        time = [registration valueForKey:@"time"];
+        minDelay = [registration valueForKey:@"minDelay"];
         if ((time.integerValue + minDelay.integerValue) < tempMin.integerValue) {
             tempMin = @(time.integerValue + minDelay.integerValue);
         }
