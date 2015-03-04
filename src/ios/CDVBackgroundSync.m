@@ -316,6 +316,7 @@ NSNumber *completedSyncs;
         NSNumber *time;
         NSNumber *maxDelay;
         NSNumber *minDelay;
+        NSDictionary *registration;
         BOOL haveMax = NO;
         if (registrations.count == 0) {
             NSLog(@"No Registrations to Schedule");
@@ -324,24 +325,24 @@ NSNumber *completedSyncs;
             return;
         }
         // Get the latest time without having a sync registration expire
-        for (NSInteger i = 0; i < [registrations count]; i++) {
-            time = [registrations[i] valueForKey:@"time"];
-            maxDelay = [registrations[i] valueForKey:@"maxDelay"];
+        for (registration in registrations) {
+            time = [registration valueForKey:@"time"];
+            maxDelay = [registration valueForKey:@"maxDelay"];
             if ((((time.integerValue + maxDelay.integerValue) < latestTime.integerValue) || latestTime == nil) && (maxDelay.integerValue != 0)) {
                 haveMax = YES;
                 latestTime = @(time.integerValue + maxDelay.integerValue);
             }
         }
         // Find the time at which we have met the maximum min delays without exceding latestTime
-        for (NSInteger i = 0; i < [registrations count]; i++) {
-            time = [registrations[i] valueForKey:@"time"];
-            minDelay = [registrations[i] valueForKey:@"minDelay"];
+        for (registration in registrations) {
+            time = [registration valueForKey:@"time"];
+            minDelay = [registration valueForKey:@"minDelay"];
             if ((!haveMax || (time.integerValue + minDelay.integerValue < latestTime.integerValue)) && time.integerValue + minDelay.integerValue > bestTime.integerValue) {
                 //Ensure no super long wait due to outliers by only including times within the threshold from the current minimum
                 if ((time.integerValue + minDelay.integerValue - min.integerValue) <= MAX_BATCH_WAIT_TIME) {
                     //Also ensure we're not taking into account registrations that require internet when we are not connected, or are not allowed on battery when we are not charging
-                    NSNumber *minRequiredNetwork = [registrations[i] valueForKey:@"minRequiredNetwork"];
-                    BOOL allowOnBattery = [registrations[i] valueForKey:@"allowOnBattery"];
+                    NSNumber *minRequiredNetwork = [registration valueForKey:@"minRequiredNetwork"];
+                    BOOL allowOnBattery = [registration valueForKey:@"allowOnBattery"];
                     if ([self getNetworkStatus] >= minRequiredNetwork.integerValue && (allowOnBattery || [self isCharging])) {
                         bestTime = @(time.integerValue + minDelay.integerValue);
                     }
