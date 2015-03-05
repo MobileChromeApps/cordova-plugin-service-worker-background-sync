@@ -342,6 +342,10 @@ NSNumber *completedSyncs;
                 latestTime = @(time.integerValue + maxDelay.integerValue);
             }
         }
+        // If a sync is scheduled for as soon as the app launches, this method may run before min is restored, a null min causes an exception
+        // TODO: solve this race condition
+        [self setMin];
+
         // Find the time at which we have met the maximum min delays without exceding latestTime
         for (registration in registrations) {
             time = [registration valueForKey:@"time"];
