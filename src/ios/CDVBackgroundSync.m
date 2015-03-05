@@ -160,6 +160,15 @@ NSNumber *completedSyncs;
     }
 }
 
+- (void)markNoDataCompletion:(CDVInvokedUrlCommand*)command
+{
+    if (completionHandler != nil) {
+        completionHandler(UIBackgroundFetchResultNoData);
+    }
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+}
+
 - (void)syncResponseSetup
 {
     //create weak reference to self in order to prevent retain cycle in block
@@ -375,7 +384,7 @@ NSNumber *completedSyncs;
     }
     min = @(tempMin.integerValue);
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    [defaults setObject:self.registrationList forKey:REGISTRATION_LIST_MIN_STORAGE_KEY];
+    [defaults setObject:min forKey:REGISTRATION_LIST_MIN_STORAGE_KEY];
     [defaults synchronize];
 }
 @end

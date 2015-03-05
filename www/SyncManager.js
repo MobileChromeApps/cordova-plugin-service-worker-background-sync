@@ -33,15 +33,19 @@ var resolveRegistrations = function(statusVars) {
     //Update the connection
     networkStatus = statusVars[0];
     isCharging = statusVars[1];
-    var inner = function(regs) {
+    var success = function(regs) {
 	regs.forEach(function(reg) {
 	    if (checkSyncRegistration(reg)) {
 		exec(null, null, "BackgroundSync", "dispatchSyncEvent", [reg]);
 	    }
 	});
 	exec(scheduleForegroundSync, null, "BackgroundSync", "getBestForegroundSyncTime", []);
+    };
+    var failure = function(message) {
+	//If there are no registrations, return completion handler on background fetch
+	exec(null, null, "BackgroundSync", "markNoDataCompletion", []);
     }
-    exec(inner, null, "BackgroundSync", "getRegistrations", []);
+    exec(success, failure, "BackgroundSync", "getRegistrations", []);
 };
 
 // We use this function so there are no side effects if the original options reference is modified

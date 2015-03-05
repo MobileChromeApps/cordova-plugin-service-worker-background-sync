@@ -29,7 +29,7 @@ CDVBackgroundSync *backgroundSync;
     [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalMinimum];
     backgroundSync = [self getCommandInstance:@"BackgroundSync"];
     [backgroundSync restoreRegistrations];
-    backgroundSync.serviceWorker = [self getCommandInstance:@"ServiceWorker"];;
+    backgroundSync.serviceWorker = [self getCommandInstance:@"ServiceWorker"];
 }
 
 - (void)application:(UIApplication *)application performFetchWithCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler{
