@@ -164,6 +164,7 @@ NSNumber *completedSyncs;
 {
     if (completionHandler != nil) {
         completionHandler(UIBackgroundFetchResultNoData);
+        completionHandler = nil;
     }
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
