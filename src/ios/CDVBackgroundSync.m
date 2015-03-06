@@ -374,6 +374,10 @@ NSNumber *completedSyncs;
 
 -(void)setMin
 {
+    if ([registrationList count] == 0) {
+        min = nil;
+        return;
+    }
     NSArray *registrations = [[registrationList allValues] copy];
     NSDictionary *registration;
     NSNumber *time = [registrations[0] valueForKey:@"time"];
