@@ -375,10 +375,20 @@ NSNumber *completedSyncs;
 
 -(void)setMin
 {
-    if ([registrationList count] == 0) {
+    @try {
+        if ([registrationList count] == 0) {
+            min = nil;
+            return;
+        }
+    }
+    @catch (NSException *exception) {
+        NSLog( @"NSException caught" );
+        NSLog( @"Name: %@", exception.name);
+        NSLog( @"Reason: %@", exception.reason );
         min = nil;
         return;
     }
+    
     NSArray *registrations = [[registrationList allValues] copy];
     NSDictionary *registration;
     NSNumber *time = [registrations[0] valueForKey:@"time"];
