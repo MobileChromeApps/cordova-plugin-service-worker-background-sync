@@ -82,7 +82,6 @@ var cloneOptions = function(toClone) {
 };
 
 var syncCheck = function(message) {
-    console.log("syncCheck");
     if (message === "idle") {
 	isIdle = true;
     } else {
@@ -99,7 +98,6 @@ var scheduleForegroundSync = function(time) {
     timeoutTracker = setTimeout(function() {
 	exec(null, syncCheck, "BackgroundSync", "checkIfIdle", []);
     }, time - (new Date()).getTime());
-    console.log("Scheduling Foreground Sync for: " + time);
 };
 
 SyncManager = function() {
@@ -116,10 +114,8 @@ SyncManager.prototype.register = function(SyncRegistrationOptions) {
 		resolve(options);
 	    };
 	    exec(innerContinue, null, "BackgroundSync", "register", [options]);
-	    console.log("Registering " + options.id);
 	};
 	var innerFail = function() {
-	    console.log("Failed to register " + options.id);
 	    reject(options); 
 	};
 
