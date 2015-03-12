@@ -162,6 +162,7 @@ NSNumber *completedSyncs;
 
 - (void)markNoDataCompletion:(CDVInvokedUrlCommand*)command
 {
+    NSLog(@"Executing No Data Completion Handler");
     if (completionHandler != nil) {
         completionHandler(UIBackgroundFetchResultNoData);
         completionHandler = nil;
@@ -209,21 +210,28 @@ NSNumber *completedSyncs;
                     [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
                     [defaults synchronize];
                 }
-            } else if ([responseType toInt32] == 1) {
-                NSLog(@"Got no data");
-            } else if ([responseType toInt32] == 2) {
-                NSLog(@"Failed to get data");
-                fetchResult = UIBackgroundFetchResultFailed;
-
+            } else {
                 //Create a backoff by re-time stamping the registration
+                NSLog(@"Pushing Back");
                 NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
                 time = @(time.doubleValue * 1000);
                 [[weakSelf.registrationList objectForKey:[regId toString]] setValue:time forKey:@"time"];
+                NSNumber *minDelay = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minDelay"];
+                if (minDelay.doubleValue < 5000) {
+                    minDelay = [NSNumber numberWithDouble:5000];
+                }
+                minDelay = @(minDelay.doubleValue * 2);
+                [[weakSelf.registrationList objectForKey:[regId toString]] setValue:minDelay forKey:@"minDelay"];
+
                 // Recalculate min
                 [weakSelf setMin];
                 NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
                 [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
                 [defaults synchronize];
+                if ([responseType toInt32] == 2) {
+                    NSLog(@"Failed to get data");
+                    fetchResult = UIBackgroundFetchResultFailed;
+                }
             }
             
             // Make sure we received all the syncs before determining completion
