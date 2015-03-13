@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one
+    or more contributor license agreements.  See the NOTICE file
+    distributed with this work for additional information
+    regarding copyright ownership.  The ASF licenses this file
+    to you under the Apache License, Version 2.0 (the
+    "License"); you may not use this file except in compliance
+    with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing,
+    software distributed under the License is distributed on an
+    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+     KIND, either express or implied.  See the License for the
+    specific language governing permissions and limitations
+    under the License.
+-->
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="format-detection" content="telephone=no" />
+        <meta name="msapplication-tap-highlight" content="no" />
+        <!-- WARNING: for iOS 7, remove the width=device-width and height=device-height attributes. See https://issues.apache.org/jira/browse/CB-4323 -->
+        <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, height=device-height, target-densitydpi=device-dpi" />
+        <link rel="stylesheet" type="text/css" href="css/index.css" />
+        <title>Hello World</title>
+    </head>
+    <body>
+        <div class="app">
+	    <div class="heading">
+		<h1>BackgroundSync Demo</h1>
+		<div id="deviceready" class="blink">
+		    <p class="event listening">Connecting to Device</p>
+		    <p class="event received">Device is Ready</p>
+		</div>
+	    </div>
+	    <div id="mainPage" class="page center">
+		<h2>No Network Requirement</h2>
+		<div id="buttons-no-network" class="button-container">
+		    <button id="min10max000" class="btn">Min10Max0</button>
+		    <button id="min15max000" class="btn">Min15Max0</button>
+		    <button id="min10max150" class="btn">Min10Max15</button>
+		    <button id="min15max200" class="btn">Min15Max20</button>
+		    <button id="min45minutes0" class="btn">Min45Minutes</button>
+		</div>
+		<h2>Any Internet Connection</h2>
+		<div id="buttons-min-network" class="button-container">
+		    <button id="min10max001" class="btn">Min10Max0</button>
+		    <button id="min15max001" class="btn">Min15Max0</button>
+		    <button id="min10max151" class="btn">Min10Max15</button>
+		    <button id="min15max201" class="btn">Min15Max20</button>
+		    <button id="min45minutes1" class="btn">Min45Minutes</button>
+		</div>
+		<h2>Wifi Only</h2>
+		<div id="buttons-min-wifi" class="button-container">
+		    <button id="min10max002" class="btn">Min10Max0</button>
+		    <button id="min15max002" class="btn">Min15Max0</button>
+		    <button id="min10max152" class="btn">Min10Max15</button>
+		    <button id="min15max202" class="btn">Min15Max20</button>
+		    <button id="min45minutes2" class="btn">Min45Minutes</button>
+		</div>
+		<h2>Other</h2>
+		<div id="buttons-other" class="button-container">
+		    <button id="syncOnCharging" class="otherBtn">Sync When Charging</button>
+		    <button id="syncOnIdle" class="otherBtn">Sync When Idle</button>
+		    <button id="customSync" class="otherBtn">Custom Sync</button>
+		</div>
+	    </div>
+	    <div id="customSyncPage" class="page right">
+		<div>
+		    <label>Name</label>
+		    <input id="idInput" type="text" />
+		</div>
+		<div>
+		    <label>Min Delay</label>
+		    <input id="minDelayInput" type="number" value=0 />
+		</div>
+		<div>
+		    <label>Max Delay</label>
+		    <input id="maxDelayInput" type="number" value=0 />
+		</div>
+		<div>
+		    <label>Min Period</label>
+		    <input id="minPeriodInput" type="number" value=0 />
+		</div>
+		<div>
+		    <label>Min Required Network</label>
+		    <select id="minRequiredNetworkInput">
+			<option value="0">No Connection</option>
+			<option value="1">WWAN</option>
+			<option value="2">Wifi</option>
+		    </select>
+		</div>
+		<div>
+		    <label>Allow on Battery</label>
+		    <input type="checkbox" id="allowOnBatteryInput" checked="true" />
+		</div>
+		<div>
+		    <label>Idle Required</label>
+		    <input type="checkbox" id="idleRequiredInput" />
+		</div>
+		<div>
+		    <button id="registerCustomSync" class="otherBtn">Register</button>
+		    <button id="backCustomSync" class="otherBtn">Back</button>
+		</div>
+	    </div>
+        </div>
+        <script type="text/javascript" src="cordova.js"></script>
+        <script type="text/javascript" src="js/index.js"></script>
+    </body>
+</html>
