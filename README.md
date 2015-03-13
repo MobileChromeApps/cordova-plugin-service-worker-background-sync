@@ -6,7 +6,7 @@ Supported Platforms: iOS
 
 ##Sample App
 To see this plugin in action, run the following commands to create the sample app
-```
+```bash
 cordova create BackgroundSyncDemo io.cordova.backgroundsyncdemo BackgroundSyncDemo
 cd BackgroundSyncDemo
 cordova platform add ios
