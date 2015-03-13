@@ -61,7 +61,12 @@ NSNumber *completedSyncs;
     
     self.syncCheckCallback = command.callbackId;
     NSLog(@"register %@", syncCheckCallback);
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_NO_RESULT];
+    CDVPluginResult *result;
+    if ([registrationList count] == 0) {
+        result = [CDVPluginResult resultWithStatus:CDVCommandStatus_NO_RESULT];
+    } else {
+        result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"notIdle"];
+    }
     [result setKeepCallback:[NSNumber numberWithBool:YES]];
     [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
 }
@@ -162,8 +167,8 @@ NSNumber *completedSyncs;
 
 - (void)markNoDataCompletion:(CDVInvokedUrlCommand*)command
 {
-    NSLog(@"Executing No Data Completion Handler");
     if (completionHandler != nil) {
+        NSLog(@"Executing No Data Completion Handler");
         completionHandler(UIBackgroundFetchResultNoData);
         completionHandler = nil;
     }
@@ -396,23 +401,31 @@ NSNumber *completedSyncs;
         min = nil;
         return;
     }
-    
-    NSArray *registrations = [[registrationList allValues] copy];
-    NSDictionary *registration;
-    NSNumber *time = [registrations[0] valueForKey:@"time"];
-    NSNumber *minDelay = [registrations[0] valueForKey:@"minDelay"];
-    NSNumber *tempMin = @(time.integerValue + minDelay.integerValue);
-    for (registration in registrations) {
-        time = [registration valueForKey:@"time"];
-        minDelay = [registration valueForKey:@"minDelay"];
-        if ((time.integerValue + minDelay.integerValue) < tempMin.integerValue) {
-            tempMin = @(time.integerValue + minDelay.integerValue);
+    @try {
+        NSArray *registrations = [[registrationList allValues] copy];
+        NSDictionary *registration;
+        NSNumber *time = [registrations[0] valueForKey:@"time"];
+        NSNumber *minDelay = [registrations[0] valueForKey:@"minDelay"];
+        NSNumber *tempMin = @(time.integerValue + minDelay.integerValue);
+        for (registration in registrations) {
+            time = [registration valueForKey:@"time"];
+            minDelay = [registration valueForKey:@"minDelay"];
+            if ((time.integerValue + minDelay.integerValue) < tempMin.integerValue) {
+                tempMin = @(time.integerValue + minDelay.integerValue);
+            }
         }
+        min = @(tempMin.integerValue);
+        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+        [defaults setObject:min forKey:REGISTRATION_LIST_MIN_STORAGE_KEY];
+        [defaults synchronize];
     }
-    min = @(tempMin.integerValue);
-    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    [defaults setObject:min forKey:REGISTRATION_LIST_MIN_STORAGE_KEY];
-    [defaults synchronize];
+    @catch (NSException *exception) {
+        NSLog( @"NSException caught" );
+        NSLog( @"Name: %@", exception.name);
+        NSLog( @"Reason: %@", exception.reason );
+        min = nil;
+        return;
+    }
 }
 @end
 

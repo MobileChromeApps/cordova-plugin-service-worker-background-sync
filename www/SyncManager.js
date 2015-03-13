@@ -10,14 +10,14 @@ var timeoutTracker = null;
 // Currently Supported Options:
 // id, minDelay, minRequiredNetwork, idleRequired, maxDelay, minPeriod, allowOnBattery
 var checkSyncRegistration = function(registration) {
-    if (registration.maxDelay != 0 && ((new Date()).getTime() - registration.maxDelay > registration.time)) {
+    if (registration.maxDelay != 0 && (Date.now() - registration.maxDelay > registration.time)) {
 	exec(null, null, "BackgroundSync", "unregister", [registration.id]);
 	return false;
     }
     if (registration.idleRequired && !isIdle) {
 	return false;
     }
-    if ((new Date()).getTime() - registration.minDelay < registration.time) {
+    if (Date.now() - registration.minDelay < registration.time) {
 	return false;
     }
     if (registration.minRequiredNetwork > networkStatus) {
@@ -48,45 +48,32 @@ var resolveRegistrations = function(statusVars) {
     exec(success, failure, "BackgroundSync", "getRegistrations", []);
 };
 
+// Helper function for generating unique id's
+function uuid() {
+    function s() {
+	return Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+    }
+    return s() + s() + '-' + s() + '-' + s() + '-' + s() + '-' + s() + s() + s();
+};
+
 // We use this function so there are no side effects if the original options reference is modified
 // and to make sure that all of the settings are within their defined limits
 var cloneOptions = function(toClone) {
     var options = new SyncRegistration();
-    if (toClone.id == null) {
-	// Use Timestamp as unique id
-	options.id = "k" + (new Date()).getTime();
-    } else {
-	options.id = toClone.id;
-    }
-    if (toClone.minDelay != null) {
-	options.minDelay = toClone.minDelay;
-    }
-    if (toClone.maxDelay != null) {
-	options.maxDelay = toClone.maxDelay;
-    }
-    if (toClone.minPeriod != null) {
-	options.minPeriod = toClone.minPeriod;
-    }
-    if (toClone.minRequiredNetwork != null && toClone.minRequiredNetwork >= -1 && toClone.minRequiredNetwork <= 2) {
-	options.minRequiredNetwork = toClone.minRequiredNetwork;
-    }
-    if (toClone.allowOnBattery != null) {
-	options.allowOnBattery = toClone.allowOnBattery;
-    }
-    if (toClone.idleRequired != null) {
-	options.idleRequired = toClone.idleRequired;
-    }
+    options.id = toClone.id || uuid();
+    options.minDelay = toClone.minDelay || options.minDelay;
+    options.maxDelay = toClone.maxDelay || options.maxDelay;
+    options.minPeriod = toClone.minPeriod || options.minPeriod;
+    options.minRequiredNetwork = toClone.minRequiredNetwork || options.minRequiredNetwork;
+    options.allowOnBattery = toClone.allowOnBattery || options.allowOnBattery;
+    options.idleRequired = toClone.idleRequired || options.idleRequired;
     // Timestamp the registration
-    options.time = (new Date()).getTime();
+    options.time = Date.now();
     return options;
 };
 
 var syncCheck = function(message) {
-    if (message === "idle") {
-	isIdle = true;
-    } else {
-	isIdle = false;
-    }
+    isIdle = (message === "idle");
     //Check the network status and then resolve registrations
     exec(resolveRegistrations, null, "BackgroundSync", "getNetworkAndBatteryStatus", []);
 };
@@ -97,30 +84,33 @@ var scheduleForegroundSync = function(time) {
     }
     timeoutTracker = setTimeout(function() {
 	exec(null, syncCheck, "BackgroundSync", "checkIfIdle", []);
-    }, time - (new Date()).getTime());
+    }, time - Date.now());
 };
 
 SyncManager = function() {
-    return this;
 };
 
-SyncManager.prototype.register = function(SyncRegistrationOptions) {
-    var options = cloneOptions(SyncRegistrationOptions);
+SyncManager.prototype.register = function(syncRegistrationOptions) {
+    var options = cloneOptions(syncRegistrationOptions);
     return new Promise(function(resolve,reject) {
-	var innerSuccess = function() {
+	var success = function() {
 	    var innerContinue = function() {
+		var innerSuccess = function(time) {
+		    scheduleForegroundSync(time);
+		    resolve(options);
+		};
 		// Find the time for the next foreground sync
-		exec(scheduleForegroundSync, null, "BackgroundSync", "getBestForegroundSyncTime", []);
-		resolve(options);
+		exec(innerSuccess, fail, "BackgroundSync", "getBestForegroundSyncTime", []);
 	    };
-	    exec(innerContinue, null, "BackgroundSync", "register", [options]);
+	    // register does not dispatch an error
+	    exec(innerContinue, fail, "BackgroundSync", "register", [options]);
 	};
-	var innerFail = function() {
+	var fail = function() {
 	    reject(options); 
 	};
 
 	// Check that this registration id does not already exist in the registration list
-	exec(innerSuccess, innerFail, "BackgroundSync", "checkUniqueId", [options.id])
+	exec(success, fail, "BackgroundSync", "checkUniqueId", [options.id])
     });
 };
 
@@ -135,7 +125,7 @@ SyncManager.prototype.getRegistrations = function() {
 	    resolve(regs)
 	}
 	var innerFail = function(regs) {
-	    resolve(null);
+	    reject(null);
 	}
 	exec(innerSuccess, innerFail, "BackgroundSync", "getRegistrations", []);
     });
@@ -144,9 +134,6 @@ SyncManager.prototype.getRegistrations = function() {
 navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
     serviceWorkerRegistration.syncManager = new SyncManager();
     exec(syncCheck, null, "BackgroundSync", "initBackgroundSync", []);
-    
-    //If there are any registrations at startup, check them
-    exec(syncCheck, null, "BackgroundSync", "getRegistrations", []);
 });
  
 module.exports = SyncManager;

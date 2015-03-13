@@ -16,7 +16,7 @@ function SyncRegistration() {
     this.minRequiredNetwork = SyncNetworkType.online;
     this.allowOnBattery = true;
     this.idleRequired = false;
-};
+}
 
 Object.freeze(SyncNetworkType);
 
