@@ -5,18 +5,16 @@
     set: eventSetter('sync')
 });
 
-Registration = function() {
-    return this;
-};
+function Registration() {
+}
 
 Registration.prototype.unregister = function() {
     unregisterSync(this.id);
 };
 
-SyncEvent = function() {
+function SyncEvent() {
     this.registration = new Registration();
-    return this;
-};
+}f
 
 SyncEvent.prototype = new ExtendableEvent('sync');
 
@@ -31,7 +29,7 @@ FireSyncEvent = function(data) {
     ev.registration.allowOnBattery = data.allowOnBattery;
     ev.registration.idleRequired = data.idleRequired;*/
     dispatchEvent(ev);
-    if(ev.promises instanceof Array) {
+    if (Array.isArray(ev.promises)) {
 	return Promise.all(ev.promises).then(function(){
 		sendSyncResponse(0, data.id);
 	    },function(){
