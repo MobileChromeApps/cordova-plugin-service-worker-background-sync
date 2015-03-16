@@ -43,9 +43,10 @@ var app = {
 		var maxDelay = 0;
 		if(id[id.length-2] !== "s") {
 		    maxDelay = Number(id.substring(8, 10)) * 1000;
+		} else {
+		    minDelay *= 60;
 		}
-		console.log("minRequiredNetwork: " + minNetworkRequired + ", minDelay: " + minDelay + ", maxDelay: " + maxDelay);
-		swreg.syncManager.register({minDelay: minDelay, maxDelay: maxDelay, minRequiredNetwork: minNetworkRequired});
+		swreg.syncManager.register({id: id, minDelay: minDelay, maxDelay: maxDelay, minRequiredNetwork: minNetworkRequired});
 	    };
 	    for(var i = 0; i < buttons.length; i++) {
 		buttons[i].addEventListener("click", onclickf);
@@ -74,7 +75,7 @@ var app = {
 	    window.addEventListener('message', function(event) {
 		console.log("received message from service worker");
 		var message = event.data;
-		var id = message.name;
+		var id = message.data.name || "Sync Event";
 		var b = new Notification(id);
 	    });
 	});
