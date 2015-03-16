@@ -23,13 +23,12 @@ SyncEvent.prototype = new ExtendableEvent('sync');
 FireSyncEvent = function(data) {
     var ev = new SyncEvent();
     ev.registration.id = data.id;
-    /*
     ev.registration.minDelay = data.minDelay;
     ev.registration.maxDelay = data.maxDelay;
     ev.registration.minPeriod = data.minPeriod;
     ev.registration.minRequiredNetwork = data.minRequiredNetwork;
     ev.registration.allowOnBattery = data.allowOnBattery;
-    ev.registration.idleRequired = data.idleRequired;*/
+    ev.registration.idleRequired = data.idleRequired;
     dispatchEvent(ev);
     if(ev.promises instanceof Array) {
 	return Promise.all(ev.promises).then(function(){
