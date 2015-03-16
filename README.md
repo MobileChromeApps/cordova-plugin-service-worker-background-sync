@@ -4,8 +4,18 @@ Background Sync enables service worker applications to perform actions when cert
 ##Plugin Status
 Supported Platforms: iOS
 
+##Installation
+To add this plugin to your project, use the following command in your project directory
+```
+cordova plugin add https://github.com/imintz/cordova-plugin-background-sync.git
+```
+To remove this plugin, use the following command
+```
+cordova plugin rm org.apache.cordova.background-sync
+```
+
 ##Sample App
-To see this plugin in action, run the following commands to create the sample app
+To see this plugin in action, execute the CreateBackgroundSyncDemo script in a directory of your choice or run the following commands to create the sample app
 ```bash
 cordova create BackgroundSyncDemo io.cordova.backgroundsyncdemo BackgroundSyncDemo
 cd BackgroundSyncDemo
