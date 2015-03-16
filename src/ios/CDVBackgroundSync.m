@@ -27,7 +27,6 @@ const NSInteger MAX_BATCH_WAIT_TIME = 1000*60*30;
 
 UIBackgroundFetchResult fetchResult = UIBackgroundFetchResultNoData;
 
-NSNumber *min;
 NSNumber *dispatchedSyncs;
 NSNumber *completedSyncs;
 
@@ -327,6 +326,7 @@ NSNumber *completedSyncs;
         NSNumber *time;
         NSNumber *maxDelay;
         NSNumber *minDelay;
+        NSNumber *min;
         NSDictionary *registration;
         BOOL haveMax = NO;
         if (registrations.count == 0) {
@@ -336,18 +336,19 @@ NSNumber *completedSyncs;
             [self.commandDelegate sendPluginResult:result callbackId:syncScheduleCallback];
             return;
         }
-        // Get the latest time without having a sync registration expire
+        // Get the latest time without having a sync registration expire , also get minimum registration dispatch time
         for (registration in registrations) {
             time = [registration valueForKey:@"time"];
             maxDelay = [registration valueForKey:@"maxDelay"];
+            minDelay = [registration valueForKey:@"minDelay"];
             if ((((time.integerValue + maxDelay.integerValue) < latestTime.integerValue) || latestTime == nil) && (maxDelay.integerValue != 0)) {
                 haveMax = YES;
                 latestTime = @(time.integerValue + maxDelay.integerValue);
             }
+            if (min == nil || time.integerValue + minDelay.integerValue < min.integerValue) {
+                min = @(time.integerValue + minDelay.integerValue);
+            }
         }
-        // If a sync is scheduled for as soon as the app launches, this method may run before min is restored, a null min causes an exception
-        // TODO: solve this race condition
-        [self setMin];
 
         // Find the time at which we have met the maximum min delays without exceding latestTime
         for (registration in registrations) {
@@ -375,45 +376,6 @@ NSNumber *completedSyncs;
             [self.commandDelegate sendPluginResult:result callbackId:syncScheduleCallback];
         }
     });
-}
-
--(void)setMin
-{
-    @try {
-        if ([registrationList count] == 0) {
-            min = nil;
-            return;
-        }
-    }
-    @catch (NSException *exception) {
-        NSLog( @"NSException caught" );
-        NSLog( @"Name: %@", exception.name);
-        NSLog( @"Reason: %@", exception.reason );
-        min = nil;
-        return;
-    }
-    @try {
-        NSArray *registrations = [[registrationList allValues] copy];
-        NSDictionary *registration;
-        NSNumber *time = [registrations[0] valueForKey:@"time"];
-        NSNumber *minDelay = [registrations[0] valueForKey:@"minDelay"];
-        NSNumber *tempMin = @(time.integerValue + minDelay.integerValue);
-        for (registration in registrations) {
-            time = [registration valueForKey:@"time"];
-            minDelay = [registration valueForKey:@"minDelay"];
-            if ((time.integerValue + minDelay.integerValue) < tempMin.integerValue) {
-                tempMin = @(time.integerValue + minDelay.integerValue);
-            }
-        }
-        min = @(tempMin.integerValue);
-    }
-    @catch (NSException *exception) {
-        NSLog( @"NSException caught" );
-        NSLog( @"Name: %@", exception.name);
-        NSLog( @"Reason: %@", exception.reason );
-        min = nil;
-        return;
-    }
 }
 @end
 
