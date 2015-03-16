@@ -9,7 +9,7 @@ var SyncNetworkType = {
 };
 
 function SyncRegistration() {
-    this.id = null;
+    this.id = "";
     this.minDelay = 0;
     this.maxDelay = 0;
     this.minPeriod = 0;

@@ -3,9 +3,9 @@
 #import "CDVServiceWorker.h"
 #import <objc/runtime.h>
 
-@implementation AppDelegate (sync)
+static CDVBackgroundSync *backgroundSync = nil;
 
-CDVBackgroundSync *backgroundSync;
+@implementation AppDelegate (sync)
 
 - (id)getCommandInstance:(NSString *)className {
     return [self.viewController getCommandInstance:className];

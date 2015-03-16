@@ -10,7 +10,7 @@ var timeoutTracker = null;
 // Currently Supported Options:
 // id, minDelay, minRequiredNetwork, idleRequired, maxDelay, minPeriod, allowOnBattery
 var checkSyncRegistration = function(registration) {
-    if (registration.maxDelay != 0 && (Date.now() - registration.maxDelay > registration.time)) {
+    if (registration.maxDelay !== 0 && (Date.now() - registration.maxDelay > registration.time)) {
 	exec(null, null, "BackgroundSync", "unregister", [registration.id]);
 	return false;
     }
@@ -44,23 +44,15 @@ var resolveRegistrations = function(statusVars) {
     var failure = function(message) {
 	//If there are no registrations, return completion handler on background fetch
 	exec(null, null, "BackgroundSync", "markNoDataCompletion", []);
-    }
+    };
     exec(success, failure, "BackgroundSync", "getRegistrations", []);
-};
-
-// Helper function for generating unique id's
-function uuid() {
-    function s() {
-	return Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
-    }
-    return s() + s() + '-' + s() + '-' + s() + '-' + s() + '-' + s() + s() + s();
 };
 
 // We use this function so there are no side effects if the original options reference is modified
 // and to make sure that all of the settings are within their defined limits
 var cloneOptions = function(toClone) {
     var options = new SyncRegistration();
-    options.id = toClone.id || uuid();
+    options.id = toClone.id;
     options.minDelay = toClone.minDelay || options.minDelay;
     options.maxDelay = toClone.maxDelay || options.maxDelay;
     options.minPeriod = toClone.minPeriod || options.minPeriod;
@@ -79,7 +71,7 @@ var syncCheck = function(message) {
 };
 
 var scheduleForegroundSync = function(time) {
-    if (timeoutTracker != null) {
+    if (timeoutTracker !== null) {
 	clearTimeout(timeoutTracker);
     }
     timeoutTracker = setTimeout(function() {
@@ -94,23 +86,18 @@ SyncManager.prototype.register = function(syncRegistrationOptions) {
     var options = cloneOptions(syncRegistrationOptions);
     return new Promise(function(resolve,reject) {
 	var success = function() {
-	    var innerContinue = function() {
-		var innerSuccess = function(time) {
-		    scheduleForegroundSync(time);
-		    resolve(options);
-		};
-		// Find the time for the next foreground sync
-		exec(innerSuccess, fail, "BackgroundSync", "getBestForegroundSyncTime", []);
+	    var innerSuccess = function(time) {
+		scheduleForegroundSync(time);
+		resolve(options);
 	    };
-	    // register does not dispatch an error
-	    exec(innerContinue, fail, "BackgroundSync", "register", [options]);
+	    // Find the time for the next foreground sync
+	    exec(innerSuccess, fail, "BackgroundSync", "getBestForegroundSyncTime", []);
 	};
 	var fail = function() {
 	    reject(options); 
 	};
-
-	// Check that this registration id does not already exist in the registration list
-	exec(success, fail, "BackgroundSync", "checkUniqueId", [options.id])
+	// register does not dispatch an error
+	exec(success, fail, "BackgroundSync", "register", [options]);
     });
 };
 
@@ -122,14 +109,14 @@ SyncManager.prototype.getRegistrations = function() {
 		    cordova.exec(null, null, "BackgroundSync", "unregister", [reg.id]);
 		};
 	    });
-	    resolve(regs)
-	}
+	    resolve(regs);
+	};
 	var innerFail = function(regs) {
 	    reject(null);
-	}
+	};
 	exec(innerSuccess, innerFail, "BackgroundSync", "getRegistrations", []);
     });
-}
+};
 
 navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
     serviceWorkerRegistration.syncManager = new SyncManager();

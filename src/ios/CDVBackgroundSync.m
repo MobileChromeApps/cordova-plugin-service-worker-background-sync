@@ -67,14 +67,25 @@ NSNumber *completedSyncs;
     [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
 }
 
+- (void)validateId:(NSString**)regId
+{
+    //Take null id and turn into empty string
+    if (*regId == (id)[NSNull null] || *regId == nil || [*regId isEqualToString:@"undefined"]) {
+        *regId = @"";
+    }
+}
+
 - (void)register:(CDVInvokedUrlCommand*)command
 {
+    NSString *regId = [[command argumentAtIndex:0] objectForKey:@"id"];
+    [self validateId:&regId];
+    [self unregisterSyncById: regId];
     if (registrationList == nil) {
-        registrationList = [NSMutableDictionary dictionaryWithObject:[command argumentAtIndex:0] forKey:[[command argumentAtIndex:0] objectForKey:@"id"]];
+        registrationList = [NSMutableDictionary dictionaryWithObject:[command argumentAtIndex:0] forKey:regId];
     } else {
-        [registrationList setObject:[command argumentAtIndex:0] forKey:[[command argumentAtIndex:0] objectForKey:@"id"]];
+        [registrationList setObject:[command argumentAtIndex:0] forKey:regId];
     }
-    NSLog(@"Registering %@", [[command argumentAtIndex:0] objectForKey:@"id"]);
+    NSLog(@"Registering %@", regId);
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
         //Save the list
@@ -84,18 +95,6 @@ NSNumber *completedSyncs;
     });
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-}
-
-- (void)checkUniqueId:(CDVInvokedUrlCommand*)command
-{
-    NSString* regId = [command argumentAtIndex:0];
-    if ([registrationList objectForKey:regId] == nil) {
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-    } else {
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"This ID has already been registered."];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-    }
 }
 
 - (void)checkIfIdle:(CDVInvokedUrlCommand*)command
@@ -173,8 +172,10 @@ NSNumber *completedSyncs;
     __weak CDVBackgroundSync* weakSelf = self;
     
     //Indicate to OS success or failure and unregister syncs that have been successfully executed and are not periodic
-    serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType, JSValue *regId) {
+    serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType, JSValue *rId) {
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
+            NSString *regId = rId.toString;
+            [weakSelf validateId:&regId];
             if (completedSyncs == nil) {
                 completedSyncs = [NSNumber numberWithInteger:0];
             }
@@ -185,13 +186,13 @@ NSNumber *completedSyncs;
                 if (fetchResult != UIBackgroundFetchResultFailed) {
                     fetchResult = UIBackgroundFetchResultNewData;
                 }
-                NSNumber* minPeriod = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"];
+                NSNumber* minPeriod = [[weakSelf.registrationList objectForKey:regId] valueForKey:@"minPeriod"];
                 if (minPeriod.integerValue == 0) {
-                    [weakSelf unregisterSyncById:[regId toString]];
+                    [weakSelf unregisterSyncById:regId];
                 } else {
-                    NSMutableDictionary *registration = [[[NSMutableDictionary alloc] initWithDictionary:[weakSelf.registrationList objectForKey:[regId toString]]] mutableCopy];
-                    NSLog(@"Reregistering %@", [registration valueForKey:@"id"]);
-                    NSNumber *minPeriod = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minPeriod"];
+                    NSMutableDictionary *registration = [[[NSMutableDictionary alloc] initWithDictionary:[weakSelf.registrationList objectForKey:regId]] mutableCopy];
+                    NSLog(@"Reregistering %@", regId);
+                    NSNumber *minPeriod = [[weakSelf.registrationList objectForKey:regId] valueForKey:@"minPeriod"];
                     // If the event is periodic, then replace its minDelay with its minPeriod and reTimestamp it
                     [registration setValue:minPeriod forKey:@"minDelay"];
                     NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
@@ -199,7 +200,7 @@ NSNumber *completedSyncs;
                     [registration setValue:time forKey:@"time"];
 
                     // Add replace the old registration with the updated one
-                    [weakSelf.registrationList setObject:registration forKey:[regId toString]];
+                    [weakSelf.registrationList setObject:registration forKey:regId];
                     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
                     [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
                     [defaults synchronize];
@@ -209,13 +210,13 @@ NSNumber *completedSyncs;
                 NSLog(@"Pushing Back");
                 NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
                 time = @(time.doubleValue * 1000);
-                [[weakSelf.registrationList objectForKey:[regId toString]] setValue:time forKey:@"time"];
-                NSNumber *minDelay = [[weakSelf.registrationList objectForKey:[regId toString]] valueForKey:@"minDelay"];
+                [[weakSelf.registrationList objectForKey:regId] setValue:time forKey:@"time"];
+                NSNumber *minDelay = [[weakSelf.registrationList objectForKey:regId] valueForKey:@"minDelay"];
                 if (minDelay.doubleValue < 5000) {
                     minDelay = [NSNumber numberWithDouble:5000];
                 }
                 minDelay = @(minDelay.doubleValue * 2);
-                [[weakSelf.registrationList objectForKey:[regId toString]] setValue:minDelay forKey:@"minDelay"];
+                [[weakSelf.registrationList objectForKey:regId] setValue:minDelay forKey:@"minDelay"];
                 NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
                 [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
                 [defaults synchronize];
