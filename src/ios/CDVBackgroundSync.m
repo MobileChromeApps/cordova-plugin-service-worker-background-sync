@@ -22,8 +22,7 @@
 #import "Reachability.h"
 #import <JavaScriptCore/JavaScriptCore.h>
 
-NSString * const REGISTRATION_LIST_STORAGE_KEY = @"CDVBackgroundSync_registrationList";
-NSString * const REGISTRATION_LIST_MIN_STORAGE_KEY = @"CDVBackgroundSync_registrationListMin";
+NSString * REGISTRATION_LIST_STORAGE_KEY;
 const NSInteger MAX_BATCH_WAIT_TIME = 1000*60*30;
 
 UIBackgroundFetchResult fetchResult = UIBackgroundFetchResultNoData;
@@ -41,14 +40,11 @@ NSNumber *completedSyncs;
 
 -(void)restoreRegistrations
 {
+    REGISTRATION_LIST_STORAGE_KEY = [NSString stringWithFormat:@"%@/%@", @"CDVBackgroundSync_registrationList_", [[[NSBundle mainBundle] infoDictionary] objectForKey:@"CFBundleIdentifier"]];
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     NSMutableDictionary *restored = [[defaults objectForKey:REGISTRATION_LIST_STORAGE_KEY] mutableCopy];
     if (restored != nil) {
         registrationList = restored;
-    }
-    NSNumber *restoredMin = [defaults objectForKey:REGISTRATION_LIST_MIN_STORAGE_KEY];
-    if (restoredMin != nil) {
-        min = restoredMin;
     }
 }
 
@@ -81,9 +77,6 @@ NSNumber *completedSyncs;
     NSLog(@"Registering %@", [[command argumentAtIndex:0] objectForKey:@"id"]);
     
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
-        //Recalculate min
-        [self setMin];
-        
         //Save the list
         NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
         [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
@@ -154,8 +147,6 @@ NSNumber *completedSyncs;
         [registrationList removeObjectForKey:id];
 
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
-            //Recalculate min
-            [self setMin];
             NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
             [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
             [defaults synchronize];
@@ -209,8 +200,6 @@ NSNumber *completedSyncs;
 
                     // Add replace the old registration with the updated one
                     [weakSelf.registrationList setObject:registration forKey:[regId toString]];
-                    //Recalculate min
-                    [weakSelf setMin];
                     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
                     [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
                     [defaults synchronize];
@@ -227,9 +216,6 @@ NSNumber *completedSyncs;
                 }
                 minDelay = @(minDelay.doubleValue * 2);
                 [[weakSelf.registrationList objectForKey:[regId toString]] setValue:minDelay forKey:@"minDelay"];
-
-                // Recalculate min
-                [weakSelf setMin];
                 NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
                 [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
                 [defaults synchronize];
@@ -415,9 +401,6 @@ NSNumber *completedSyncs;
             }
         }
         min = @(tempMin.integerValue);
-        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-        [defaults setObject:min forKey:REGISTRATION_LIST_MIN_STORAGE_KEY];
-        [defaults synchronize];
     }
     @catch (NSException *exception) {
         NSLog( @"NSException caught" );
