@@ -39,7 +39,6 @@ var resolveRegistrations = function(statusVars) {
 		exec(null, null, "BackgroundSync", "dispatchSyncEvent", [reg]);
 	    }
 	});
-	exec(scheduleForegroundSync, null, "BackgroundSync", "getBestForegroundSyncTime", []);
     };
     var failure = function(message) {
 	//If there are no registrations, return completion handler on background fetch
