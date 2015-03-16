@@ -15,7 +15,10 @@
     <js-module src="www/SyncRegistration.js" name="SyncRegistration">
 	<clobbers target="SyncRegistration" />
     </js-module>
-    
+    <js-module src="www/Assets.js" name="Assets">
+	<clobbers target="" />
+    </js-module>
+
     <!-- Assets for use by service worker -->
     <asset src="www/sw_assets/sync.js" target="sw_assets/sync.js" />
 

@@ -117,6 +117,10 @@ SyncManager.prototype.getRegistrations = function() {
     });
 };
 
+SyncManager.prototype.hasPermission = function() {
+    return SyncPermissionStatus.granted;
+};
+
 navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
     serviceWorkerRegistration.syncManager = new SyncManager();
     exec(syncCheck, null, "BackgroundSync", "initBackgroundSync", []);
