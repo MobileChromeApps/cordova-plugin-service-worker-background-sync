@@ -21,6 +21,7 @@
 #import "CDVBackgroundSync.h"
 #import "Reachability.h"
 #import <JavaScriptCore/JavaScriptCore.h>
+#import <objc/runtime.h>
 
 NSString * REGISTRATION_LIST_STORAGE_KEY;
 const NSInteger MAX_BATCH_WAIT_TIME = 1000*60*30;
@@ -29,6 +30,8 @@ UIBackgroundFetchResult fetchResult = UIBackgroundFetchResultNoData;
 
 NSNumber *dispatchedSyncs;
 NSNumber *completedSyncs;
+
+CDVBackgroundSync *backgroundSync;
 
 @implementation CDVBackgroundSync
 
@@ -48,13 +51,32 @@ NSNumber *completedSyncs;
     }
 }
 
-- (void)initBackgroundSync:(CDVInvokedUrlCommand*)command
+- (void)pluginInitialize
 {
-    //TODO: Find a better place to run this setup
+    [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalMinimum];
+    [self restoreRegistrations];
+    self.serviceWorker = [(CDVViewController*)self.viewController getCommandInstance:@"ServiceWorker"];
     [self syncResponseSetup];
     [self unregisterSetup];
     [self networkCheckSetup];
-    
+    [self initBackgroundFetchHandler];
+}
+
+- (void)initBackgroundFetchHandler
+{
+    backgroundSync = self;
+    if ([[[UIApplication sharedApplication] delegate] respondsToSelector:@selector(application:performFetchWithCompletionHandler:)]) {
+        Method original, swizzled;
+        original = class_getInstanceMethod([self class], @selector(application:performFetchWithCompletionHandler:));
+        swizzled = class_getInstanceMethod([[[UIApplication sharedApplication] delegate] class], @selector(application:performFetchWithCompletionHandler:));
+        method_exchangeImplementations(original, swizzled);
+    } else {
+        class_addMethod([[[UIApplication sharedApplication] delegate] class], @selector(application:performFetchWithCompletionHandler:), class_getMethodImplementation([self class], @selector(application:performFetchWithCompletionHandler:)), nil);
+    }
+}
+
+- (void)initBackgroundSync:(CDVInvokedUrlCommand*)command
+{
     self.syncCheckCallback = command.callbackId;
     NSLog(@"register %@", syncCheckCallback);
     CDVPluginResult *result;
@@ -122,7 +144,6 @@ NSNumber *completedSyncs;
 
 - (void)unregisterSetup
 {
-    //create weak reference to self in order to prevent retain cycle in block
     __weak CDVBackgroundSync* weakSelf = self;
     
     // Set up service worker unregister event
@@ -267,6 +288,10 @@ NSNumber *completedSyncs;
         [result setKeepCallback:[NSNumber numberWithBool:YES]];
         [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
     }
+}
+
+- (void)application:(UIApplication*)application performFetchWithCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler{
+    [backgroundSync fetchNewDataWithCompletionHandler:completionHandler];
 }
 
 - (void)dispatchSyncEvent:(CDVInvokedUrlCommand*)command

@@ -35,8 +35,6 @@
 	</config-file>
 	<header-file src="src/ios/CDVBackgroundSync.h" />
 	<source-file src="src/ios/CDVBackgroundSync.m" />
-	<header-file src="src/ios/AppDelegate+sync.h" />
-	<source-file src="src/ios/AppDelegate+sync.m" />
 	<header-file src="src/ios/Reachability.h" />
 	<source-file src="src/ios/Reachability.m" />
 	<framework src="SystemConfiguration.framework" />
