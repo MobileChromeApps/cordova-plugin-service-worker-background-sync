@@ -1,11 +1,7 @@
 this.onsync = function(event) {
     event.waitUntil(new Promise(function(resolve, reject) {
-	var message = { name: 'syncEvent',
-			data: {
-			    name: event.registration.id
-			}
-		    };
-	client.postMessage(message);
+	var title = event.registration.id || "Sync Event";
+	var notification = new Notification(title);
 	resolve(true);
     }));
 };

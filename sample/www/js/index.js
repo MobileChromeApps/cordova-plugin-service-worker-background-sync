@@ -72,12 +72,6 @@ var app = {
 		document.getElementById("customSyncPage").className = "page transition right";
 		resetCustomSyncPage();
 	    });
-	    window.addEventListener('message', function(event) {
-		console.log("received message from service worker");
-		var message = event.data;
-		var id = message.data.name || "Sync Event";
-		var b = new Notification(id);
-	    });
 	});
     },
     // Update DOM on a Received Event
