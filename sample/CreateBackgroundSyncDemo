@@ -5,9 +5,9 @@ cordova platform add ios
 cordova plugin add https://github.com/mwoghiren/cordova-plugin-serviceworker.git
 cordova plugin add https://github.com/imintz/cordova-plugin-background-sync.git
 cordova plugin add https://github.com/imintz/cordova-plugin-notification.git
-mv 'plugins/org.apache.cordova.background-sync/sample/config.xml' 'config.xml'
-mv 'plugins/org.apache.cordova.background-sync/sample/www/sw.js' 'www/sw.js'
-mv 'plugins/org.apache.cordova.background-sync/sample/www/index.html' 'www/index.html'
-mv 'plugins/org.apache.cordova.background-sync/sample/www/js/index.js' 'www/js/index.js'
-mv 'plugins/org.apache.cordova.background-sync/sample/www/css/index.css' 'www/css/index.css'
+mv 'plugins/cordova-plugin-background-sync/sample/config.xml' 'config.xml'
+mv 'plugins/cordova-plugin-background-sync/sample/www/sw.js' 'www/sw.js'
+mv 'plugins/cordova-plugin-background-sync/sample/www/index.html' 'www/index.html'
+mv 'plugins/cordova-plugin-background-sync/sample/www/js/index.js' 'www/js/index.js'
+mv 'plugins/cordova-plugin-background-sync/sample/www/css/index.css' 'www/css/index.css'
 cordova prepare

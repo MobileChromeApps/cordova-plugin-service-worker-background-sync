@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
-	   id="org.apache.cordova.background-sync"
+	   id="cordova-plugin-background-sync"
       version="0.0.1-dev">
     <name>BackgroundSync</name>
     <description>BackgroundSync Plugin</description>
