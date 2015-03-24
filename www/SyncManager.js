@@ -50,6 +50,9 @@ var resolveRegistrations = function(statusVars) {
 // We use this function so there are no side effects if the original options reference is modified
 // and to make sure that all of the settings are within their defined limits
 var cloneOptions = function(toClone) {
+    if (typeof toClone === 'undefined') {
+	toClone = {};
+    }
     var options = new SyncRegistration();
     options.id = toClone.id;
     options.minDelay = toClone.minDelay || options.minDelay;
@@ -82,8 +85,8 @@ SyncManager = function() {
 };
 
 SyncManager.prototype.register = function(syncRegistrationOptions) {
-    var options = cloneOptions(syncRegistrationOptions);
     return new Promise(function(resolve,reject) {
+	var options = cloneOptions(syncRegistrationOptions);
 	var success = function() {
 	    var innerSuccess = function(time) {
 		scheduleForegroundSync(time);

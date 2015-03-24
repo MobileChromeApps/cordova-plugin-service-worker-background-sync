@@ -36,7 +36,6 @@ CDVBackgroundSync *backgroundSync;
 @implementation CDVBackgroundSync
 
 @synthesize syncCheckCallback;
-@synthesize syncScheduleCallback;
 @synthesize completionHandler;
 @synthesize serviceWorker;
 @synthesize registrationList;
@@ -162,10 +161,11 @@ CDVBackgroundSync *backgroundSync;
 
 - (void)unregisterSyncById:(NSString*)id
 {
+    [self validateId:&id];
     if ([registrationList objectForKey:id]) {
         NSLog(@"Unregistering %@", id);
         [registrationList removeObjectForKey:id];
-
+        
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
             NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
             [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
@@ -200,7 +200,7 @@ CDVBackgroundSync *backgroundSync;
             completedSyncs = [NSNumber numberWithInteger:0];
         }
         completedSyncs = @(completedSyncs.integerValue + 1);
-
+        
         //Response Type: 0 = New Data, 1 = No Data, 2 = Failed to Fetch
         if ([responseType toInt32] == 0) {
             if (fetchResult != UIBackgroundFetchResultFailed) {
@@ -218,7 +218,7 @@ CDVBackgroundSync *backgroundSync;
                 NSNumber *time = [NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970];
                 time = @(time.doubleValue * 1000);
                 [registration setValue:time forKey:@"time"];
-
+                
                 // Add replace the old registration with the updated one
                 [weakSelf.registrationList setObject:registration forKey:regId];
                 NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
@@ -253,7 +253,7 @@ CDVBackgroundSync *backgroundSync;
                 weakSelf.completionHandler(fetchResult);
                 weakSelf.completionHandler = nil;
             }
-
+            
             // Reset the sync count
             completedSyncs = [NSNumber numberWithInteger:0];
             dispatchedSyncs = [NSNumber numberWithInteger:0];
@@ -301,7 +301,7 @@ CDVBackgroundSync *backgroundSync;
         dispatchedSyncs = [NSNumber numberWithInteger:0];
     }
     dispatchedSyncs = @(dispatchedSyncs.integerValue + 1);
-
+    
     NSString *message = [command argumentAtIndex:0];
     
     // If we need all of the object properties
@@ -309,7 +309,7 @@ CDVBackgroundSync *backgroundSync;
     NSData *json = [NSJSONSerialization dataWithJSONObject:message options:0 error:&error];
     NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(JSON.parse('%@'));", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
     [serviceWorker.context performSelectorOnMainThread:@selector(evaluateScript:) withObject:dispatchCode waitUntilDone:NO];
-
+    
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
@@ -342,9 +342,6 @@ CDVBackgroundSync *backgroundSync;
 - (void)getBestForegroundSyncTime:(CDVInvokedUrlCommand*)command
 {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void){
-        if (syncScheduleCallback == nil) {
-            syncScheduleCallback = command.callbackId;
-        }
         NSArray* registrations = [registrationList allValues];
         NSNumber *latestTime;
         NSNumber *bestTime = 0;
@@ -357,8 +354,7 @@ CDVBackgroundSync *backgroundSync;
         if (registrations.count == 0) {
             NSLog(@"No Registrations to Schedule");
             CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Registrations to Schedule"];
-            [result setKeepCallback:[NSNumber numberWithBool:YES]];
-            [self.commandDelegate sendPluginResult:result callbackId:syncScheduleCallback];
+            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
             return;
         }
         // Get the latest time without having a sync registration expire , also get minimum registration dispatch time
@@ -374,7 +370,7 @@ CDVBackgroundSync *backgroundSync;
                 min = @(time.integerValue + minDelay.integerValue);
             }
         }
-
+        
         // Find the time at which we have met the maximum min delays without exceding latestTime
         for (registration in registrations) {
             time = [registration valueForKey:@"time"];
@@ -393,12 +389,10 @@ CDVBackgroundSync *backgroundSync;
         }
         if (bestTime == 0) {
             CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No viable registration to schedule"];
-            [result setKeepCallback:[NSNumber numberWithBool:YES]];
-            [self.commandDelegate sendPluginResult:result callbackId:syncScheduleCallback];
+            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
         } else {
             CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDouble:[bestTime integerValue]];
-            [result setKeepCallback:[NSNumber numberWithBool:YES]];
-            [self.commandDelegate sendPluginResult:result callbackId:syncScheduleCallback];
+            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
         }
     });
 }

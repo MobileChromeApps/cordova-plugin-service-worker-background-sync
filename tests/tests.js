@@ -56,32 +56,74 @@
 
     describe('Check Sync Manager Functionality', function () {
 	var originalTimeout;
-	beforeEach(function(done) {
-	    originalTimeout = jasmine.DEFAULT_TIMEOUT_INTERVAL;
-	    jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
-
+	var clearAllRegs = function (done) {
 	    navigator.serviceWorker.ready.then(function (swreg) {
 		swreg.syncManager.getRegistrations().then(function (regs) {
 		    regs.forEach(function(reg) {
 			reg.unregister();
 		    });
+		    done();
+		},
+		function (err) {
+		    done();
+		});
+	    });
+	};
+	beforeEach(function(done) {
+	    originalTimeout = jasmine.DEFAULT_TIMEOUT_INTERVAL;
+	    jasmine.DEFAULT_TIMEOUT_INTERVAL = 10000;
+	    clearAllRegs(done);
+	});
+	afterEach(function(done) {
+	    jasmine.DEFAULT_TIMEOUT_INTERVAL = originalTimeout;
+	    clearAllRegs(done);
+	});
+
+	it("getRegistrations with empty list", function (done) {
+	    navigator.serviceWorker.ready.then(function (swreg) {
+		swreg.syncManager.getRegistrations().then(function (regs) {
+		    expect(false).toBe(true);
 		},
 		function (err) {
 		    done();
 		});
 	    });
 	});
-	afterEach(function(done) {
-	    jasmine.DEFAULT_TIMEOUT_INTERVAL = originalTimeout;
-	    done();
-	});
-
-	it("getRegistrations should reject since list is empty", function (done) {
+	it("register and getRegistrations with one element", function (done) {
 	    navigator.serviceWorker.ready.then(function (swreg) {
-		swreg.syncManager.getRegistrations().then(function (regs) {
-		    expect(false).toBe(true);
+		swreg.syncManager.register({"minDelay":50000}).then(function (regs) {
+		    swreg.syncManager.getRegistrations().then(function (regs) {
+			expect(regs.length).toBe(1);
+			done();
+		    },
+		    function (err) {
+			expect(false).toBe(true);
+			done();
+		    });
 		},
 		function (err) {
+		    expect(false).toBe(true);
+		    done();
+		});
+	    });
+	});
+	it("registrations received from getRegistrations .unregister()", function (done) {
+	    navigator.serviceWorker.ready.then(function (swreg) {
+		swreg.syncManager.register({"minDelay":50000}).then(function (regs) {
+		    swreg.syncManager.getRegistrations().then(function (regs) {
+			expect(regs.length).toBe(1);
+			regs.forEach(function(reg) {
+			    reg.unregister();
+			});
+			done();
+		    },
+		    function (err) {
+			expect(false).toBe(true);
+			done();
+		    });
+		},
+		function (err) {
+		    expect(false).toBe(true);
 		    done();
 		});
 	    });
