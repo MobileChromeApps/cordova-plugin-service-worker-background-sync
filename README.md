@@ -11,7 +11,7 @@ cordova plugin add https://github.com/imintz/cordova-plugin-background-sync.git
 ```
 To remove this plugin, use the following command
 ```
-cordova plugin rm org.apache.cordova.background-sync
+cordova plugin rm cordova-plugin-background-sync
 ```
 
 ##Sample App
