@@ -252,7 +252,7 @@
 			expect(false).toBe(true);
 			done();
 		    },
-		    function () { 
+		    function () {
 			done();
 		    });
 		}
@@ -264,7 +264,7 @@
 		    swreg.syncManager.getRegistrations().then(function (regs) {
 			expect(regs.length).toEqual(2);
 		    },
-		    function () { 
+		    function () {
 			expect(false).toBe(true);
 		    });
 		},
@@ -296,7 +296,7 @@
 			expect(false).toBe(true);
 			done();
 		    },
-		    function () { 
+		    function () {
 			done();
 		    });
 		}
@@ -307,7 +307,7 @@
 		    swreg.syncManager.getRegistrations().then(function (regs) {
 			expect(regs.length).toEqual(2);
 		    },
-		    function () { 
+		    function () {
 			expect(false).toBe(true);
 		    });
 		},
@@ -331,7 +331,7 @@
 		    expect(false).toBe(true);
 		    done();
 		},
-		function () { 
+		function () {
 		    done();
 		});
 	    };
@@ -341,9 +341,76 @@
 		    swreg.syncManager.getRegistrations().then(function (regs) {
 			expect(regs.length).toEqual(2);
 		    },
-		    function () { 
+		    function () {
 			expect(false).toBe(true);
 		    });
+		},
+		function () {
+		    expect(false).toBe(true);
+		});
+	    },
+	    function (err) {
+		expect(false).toBe(true);
+		done();
+	    });
+	});
+	it("immediate sync should fire without waiting for long delay outside threshold", function (done) {
+	    var syncCount = 0;
+	    messageCallback = function(event) {
+		syncCount++;
+		expect(event.data.name).toEqual("immediate");
+		expect(syncCount).toEqual(1);
+		swreg.syncManager.getRegistrations().then(function (regs) {
+		    expect(regs.length).toEqual(1);
+		    done();
+		},
+		function () {
+		    expect(false).toBe(true);
+		    done();
+		});
+	    };
+	    window.addEventListener('message', messageCallback);
+	    swreg.syncManager.register({id:"longSync", minDelay:35*60*1000}).then(function (reg) {
+		swreg.syncManager.register({id:"immediate"}).then(function () {
+		},
+		function () {
+		    expect(false).toBe(true);
+		});
+	    },
+	    function (err) {
+		expect(false).toBe(true);
+		done();
+	    });
+	});
+	it("periodic sync reschedules with correct minPeriod", function (done) {
+	    var syncCount = 0;
+	    var initTime;
+	    messageCallback = function(event) {
+		syncCount++;
+		if (syncCount == 1) {
+		    expect(Date.now() - initTime).toBeLessThen(200);
+		    initTime = Date.now();
+		}
+		if (syncCount > 1) {
+		    expect(Date.now() - initTime).toBeGreaterThan(200);
+		    initTime = Date.now();
+		}
+		if (syncCount == 3) {
+		    swreg.syncManager.getRegistrations().then(function (regs) {
+			expect(regs.length).toEqual(1);
+			done();
+		    },
+		    function () {
+			expect(false).toBe(true);
+			done();
+		    });
+		}
+	    };
+	    window.addEventListener('message', messageCallback);
+	    initTime = Date.now();
+	    swreg.syncManager.register({id:"periodic", minPeriod: 200}).then(function (reg) {
+		swreg.syncManager.getRegistrations().then(function (regs) {
+		    expect(regs.length).toEqual(1);
 		},
 		function () {
 		    expect(false).toBe(true);
