@@ -59,7 +59,9 @@ var cloneOptions = function(toClone) {
     options.maxDelay = toClone.maxDelay || options.maxDelay;
     options.minPeriod = toClone.minPeriod || options.minPeriod;
     options.minRequiredNetwork = toClone.minRequiredNetwork || options.minRequiredNetwork;
-    options.allowOnBattery = toClone.allowOnBattery || options.allowOnBattery;
+    if (typeof toClone.allowOnBattery !== 'undefined') {
+	options.allowOnBattery = toClone.allowOnBattery;
+    }
     options.idleRequired = toClone.idleRequired || options.idleRequired;
     // Timestamp the registration
     options.time = Date.now();
@@ -81,8 +83,7 @@ var scheduleForegroundSync = function(time) {
     }, time - Date.now());
 };
 
-SyncManager = function() {
-};
+SyncManager = function() {};
 
 SyncManager.prototype.register = function(syncRegistrationOptions) {
     return new Promise(function(resolve,reject) {
@@ -121,12 +122,12 @@ SyncManager.prototype.getRegistrations = function() {
 };
 
 SyncManager.prototype.hasPermission = function() {
-    return SyncPermissionStatus.granted;
+    return Promise.resolve(SyncPermissionStatus.granted);
 };
 
 navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
     serviceWorkerRegistration.syncManager = new SyncManager();
-    exec(syncCheck, null, "BackgroundSync", "initBackgroundSync", []);
+    exec(syncCheck, scheduleForegroundSync, "BackgroundSync", "initBackgroundSync", []);
 });
  
 module.exports = SyncManager;
