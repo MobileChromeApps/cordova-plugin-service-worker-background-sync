@@ -106,7 +106,7 @@ SyncManager.prototype.register = function(syncRegistrationOptions) {
 
 SyncManager.prototype.getRegistrations = function() {
     return new Promise(function(resolve, reject) {
-	var innerSuccess = function(regs) {
+	var success = function(regs) {
 	    regs.forEach(function(reg) {
 		reg.unregister = function() {
 		    cordova.exec(null, null, "BackgroundSync", "unregister", [reg.id]);
@@ -114,10 +114,25 @@ SyncManager.prototype.getRegistrations = function() {
 	    });
 	    resolve(regs);
 	};
-	var innerFail = function(regs) {
-	    reject(null);
+	var failure = function(err) {
+	    reject(err);
 	};
-	exec(innerSuccess, innerFail, "BackgroundSync", "getRegistrations", []);
+	exec(success, failure, "BackgroundSync", "getRegistrations", []);
+    });
+};
+
+SyncManager.prototype.getRegistration = function(regId) {
+    return new Promise(function(resolve, reject) {
+	var success = function(reg) {
+	    reg.unregister = function() {
+		cordova.exec(null, null, "BackgroundSync", "unregister", [reg.id]);
+	    };
+	    resolve(reg);
+	};
+	var failure = function(err) {
+	    reject(err);
+	};
+	exec(success, failure, "BackgroundSync", "getRegistration", [regId]);
     });
 };
 

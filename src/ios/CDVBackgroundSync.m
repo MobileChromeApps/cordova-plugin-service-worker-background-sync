@@ -130,9 +130,20 @@ CDVBackgroundSync *backgroundSync;
 
 - (void)getRegistrations:(CDVInvokedUrlCommand*)command
 {
-    // If we have pre-existing registrations, give them to the javascript side
     if (registrationList != nil && [registrationList count] != 0) {
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:[registrationList allValues]];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    } else {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Preexisting Registrations"];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    }
+}
+
+- (void)getRegistration:(CDVInvokedUrlCommand*)command
+{
+    NSString *id = [command argumentAtIndex:0];
+    if (registrationList != nil && [registrationList count] != 0) {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:[registrationList objectForKey:id]];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     } else {
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Preexisting Registrations"];
@@ -391,7 +402,6 @@ CDVBackgroundSync *backgroundSync;
                 }
             }
         }
-        NSLog(@"Best Time: %@", bestTime);
         if (bestTime == 0) {
             CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No viable registration to schedule"];
             [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];

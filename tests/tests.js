@@ -56,6 +56,7 @@
 
     describe('Check Sync Manager Functionality', function () {
 	var messageCallback;
+	var swreg;
 	var clearAllRegs = function (done) {
 	    navigator.serviceWorker.ready.then(function (swreg) {
 		swreg.syncManager.getRegistrations().then(function (regs) {
@@ -69,6 +70,9 @@
 		});
 	    });
 	};
+	navigator.serviceWorker.ready.then(function (reg) {
+	    swreg = reg;
+	});
 	beforeEach(function(done) {
 	    clearAllRegs(done);
 	});
@@ -78,97 +82,121 @@
 	});
 
 	it("hasPermission returns granted", function (done) {
-	    navigator.serviceWorker.ready.then(function (swreg) {
-		swreg.syncManager.hasPermission().then(function (status) {
-		    expect(status).toBeTruthy();
-		    expect(status).toEqual(2);
-		    done();
-		},
-		function (err) {
-		    expect(false).toBe(true);
-		    done();
-		});
+	    swreg.syncManager.hasPermission().then(function (status) {
+		expect(status).toBeTruthy();
+		expect(status).toEqual(2);
+		done();
+	    },
+	    function (err) {
+		expect(false).toBe(true);
+		done();
 	    });
 	});
 	it("getRegistrations with empty list", function (done) {
-	    navigator.serviceWorker.ready.then(function (swreg) {
-		swreg.syncManager.getRegistrations().then(function (regs) {
-		    expect(false).toBe(true);
-		    done();
-		},
-		function (err) {
-		    done();
-		});
+	    swreg.syncManager.getRegistrations().then(function (regs) {
+		expect(false).toBe(true);
+		done();
+	    },
+	    function (err) {
+		done();
 	    });
 	});
 	it("register and getRegistrations with one element", function (done) {
-	    navigator.serviceWorker.ready.then(function (swreg) {
-		swreg.syncManager.register({"minDelay":50000}).then(function (regs) {
-		    swreg.syncManager.getRegistrations().then(function (regs) {
-			expect(regs.length).toBe(1);
-			done();
-		    },
-		    function (err) {
-			expect(false).toBe(true);
-			done();
-		    });
+	    swreg.syncManager.register({"minDelay":50000}).then(function (regs) {
+		swreg.syncManager.getRegistrations().then(function (regs) {
+		    expect(regs.length).toBe(1);
+		    done();
 		},
 		function (err) {
 		    expect(false).toBe(true);
 		    done();
 		});
+	    },
+	    function (err) {
+		expect(false).toBe(true);
+		done();
 	    });
 	});
 	it("registrations received from getRegistrations .unregister()", function (done) {
-	    navigator.serviceWorker.ready.then(function (swreg) {
-		swreg.syncManager.register({"minDelay":50000}).then(function () {
-		    swreg.syncManager.getRegistrations().then(function (regs) {
-			expect(regs.length).toBe(1);
-			regs.forEach(function(reg) {
-			    reg.unregister();
-			});
-			done();
-		    },
-		    function (err) {
-			expect(false).toBe(true);
-			done();
+	    swreg.syncManager.register({"minDelay":50000}).then(function () {
+		swreg.syncManager.getRegistrations().then(function (regs) {
+		    expect(regs.length).toBe(1);
+		    regs.forEach(function(reg) {
+			reg.unregister();
 		    });
+		    done();
 		},
 		function (err) {
 		    expect(false).toBe(true);
 		    done();
 		});
+	    },
+	    function (err) {
+		expect(false).toBe(true);
+		done();
+	    });
+	});
+	it("getRegistration resolves correct single registration", function (done) {
+	    swreg.syncManager.register({id:"1", minDelay: 1000}).then(function () {
+		swreg.syncManager.register({id:"2", minDelay: 1000, maxDelay: 2000, allowOnBattery: false, idleRequired: true}).then(function () {
+		    swreg.syncManager.register({id:"3", minDelay: 1000}).then(function () {
+			swreg.syncManager.getRegistrations().then(function (regs) {
+			    expect(regs.length).toEqual(3);
+			    swreg.syncManager.getRegistration('2').then(function (reg) {
+				expect(reg.id).toEqual("2");
+				expect(reg.maxDelay).toEqual(2000);
+				expect(reg.minDelay).toEqual(1000);
+				expect(reg.allowOnBattery).toBeFalsy();
+				expect(reg.idleRequired).toBeTruthy();
+				done();
+			    },
+			    function () {
+				expect(false).toBe(true);
+				done();
+			    });
+			},
+			function () {
+			    expect(false).toBe(true);
+			    done();
+			});
+		    },
+		    function () {
+			expect(false).toBe(true);
+			done();
+		    });
+		},
+		function () {
+		    expect(false).toBe(true);
+		    done();
+		});
+	    },
+	    function () {
+		expect(false).toBe(true);
+		done();
 	    });
 	});
 	it("empty registration creates instant sync", function (done) {
-	    navigator.serviceWorker.ready.then(function (swreg) {
-		messageCallback = function() {
-		    done();
-		};
-		window.addEventListener('message', messageCallback);
-		swreg.syncManager.register().then(function () {
-		},
-		function (err) {
-		    expect(false).toBe(true);
-		    done();
-		});
+	    messageCallback = function() {
+		done();
+	    };
+	    window.addEventListener('message', messageCallback);
+	    swreg.syncManager.register().then(function () {
+	    },
+	    function (err) {
+		expect(false).toBe(true);
+		done();
 	    });
 	});
 	it("same id registrations get overwritten", function (done) {
-	    navigator.serviceWorker.ready.then(function (swreg) {
-		messageCallback = function(event) {
-		    expect(event.data.minDelay).toEqual(0);
-		    done();
-		};
-		window.addEventListener('message', messageCallback);
-		swreg.syncManager.register({id:"test", minDelay:500}).then(function () {
-		    swreg.syncManager.register({id:"test"}).then(function () {
-			swreg.syncManager.getRegistrations().then(function(regs) {
-			    expect(regs.length).toEqual(1);
-			},
-			function (err) {
-			    expect(false).toBe(true);
-			});
+	    messageCallback = function(event) {
+		expect(event.data.minDelay).toEqual(0);
+		done();
+	    };
+	    window.addEventListener('message', messageCallback);
+	    swreg.syncManager.register({id:"test", minDelay:500}).then(function () {
+		swreg.syncManager.register({id:"test"}).then(function () {
+		    swreg.syncManager.getRegistrations().then(function(regs) {
+			expect(regs.length).toEqual(1);
 		    },
 		    function (err) {
 			expect(false).toBe(true);
@@ -176,25 +204,23 @@
 		},
 		function (err) {
 		    expect(false).toBe(true);
-		    done();
 		});
+	    },
+	    function (err) {
+		expect(false).toBe(true);
+		done();
 	    });
 	});
 	it("empty id registrations get overwritten", function (done) {
-	    navigator.serviceWorker.ready.then(function (swreg) {
-		messageCallback = function(event) {
-		    expect(event.data.minDelay).toEqual(0);
-		    done();
-		};
-		window.addEventListener('message', messageCallback);
-		swreg.syncManager.register({minDelay:500}).then(function () {
-		    swreg.syncManager.register().then(function () {
-			swreg.syncManager.getRegistrations().then(function(regs) {
-			    expect(regs.length).toEqual(1);
-			},
-			function (err) {
-			    expect(false).toBe(true);
-			});
+	    messageCallback = function(event) {
+		expect(event.data.minDelay).toEqual(0);
+		done();
+	    };
+	    window.addEventListener('message', messageCallback);
+	    swreg.syncManager.register({minDelay:500}).then(function () {
+		swreg.syncManager.register().then(function () {
+		    swreg.syncManager.getRegistrations().then(function(regs) {
+			expect(regs.length).toEqual(1);
 		    },
 		    function (err) {
 			expect(false).toBe(true);
@@ -202,8 +228,11 @@
 		},
 		function (err) {
 		    expect(false).toBe(true);
-		    done();
 		});
+	    },
+	    function (err) {
+		expect(false).toBe(true);
+		done();
 	    });
 	});
     });
