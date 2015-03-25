@@ -35,7 +35,7 @@ CDVBackgroundSync *backgroundSync;
 
 @implementation CDVBackgroundSync
 
-@synthesize syncCheckCallback;
+@synthesize syncCheckCallback; //Success: Initiate sync check, Failure: scheduleForegroundSync
 @synthesize completionHandler;
 @synthesize serviceWorker;
 @synthesize registrationList;
@@ -77,7 +77,6 @@ CDVBackgroundSync *backgroundSync;
 - (void)initBackgroundSync:(CDVInvokedUrlCommand*)command
 {
     self.syncCheckCallback = command.callbackId;
-    NSLog(@"register %@", syncCheckCallback);
     CDVPluginResult *result;
     if ([registrationList count] == 0) {
         result = [CDVPluginResult resultWithStatus:CDVCommandStatus_NO_RESULT];
@@ -344,7 +343,7 @@ CDVBackgroundSync *backgroundSync;
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void){
         NSArray* registrations = [registrationList allValues];
         NSNumber *latestTime;
-        NSNumber *bestTime = 0;
+        NSNumber *bestTime = [NSNumber numberWithInt:0];
         NSNumber *time;
         NSNumber *maxDelay;
         NSNumber *minDelay;
@@ -353,46 +352,58 @@ CDVBackgroundSync *backgroundSync;
         BOOL haveMax = NO;
         if (registrations.count == 0) {
             NSLog(@"No Registrations to Schedule");
-            CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Registrations to Schedule"];
-            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+            if (command != nil) {
+                CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Registrations to Schedule"];
+                [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+            }
             return;
         }
         // Get the latest time without having a sync registration expire , also get minimum registration dispatch time
         for (registration in registrations) {
-            time = [registration valueForKey:@"time"];
-            maxDelay = [registration valueForKey:@"maxDelay"];
-            minDelay = [registration valueForKey:@"minDelay"];
-            if ((((time.integerValue + maxDelay.integerValue) < latestTime.integerValue) || latestTime == nil) && (maxDelay.integerValue != 0)) {
-                haveMax = YES;
-                latestTime = @(time.integerValue + maxDelay.integerValue);
-            }
-            if (min == nil || time.integerValue + minDelay.integerValue < min.integerValue) {
-                min = @(time.integerValue + minDelay.integerValue);
+            NSNumber *minRequiredNetwork = [registration valueForKey:@"minRequiredNetwork"];
+            NSNumber *allowOnBattery = [registration valueForKey:@"allowOnBattery"];
+            if ([self getNetworkStatus] >= minRequiredNetwork.integerValue && (allowOnBattery.intValue || [self isCharging])) {
+                time = [registration valueForKey:@"time"];
+                maxDelay = [registration valueForKey:@"maxDelay"];
+                minDelay = [registration valueForKey:@"minDelay"];
+                if ((((time.integerValue + maxDelay.integerValue) < latestTime.integerValue) || latestTime == nil) && (maxDelay.integerValue != 0)) {
+                    haveMax = YES;
+                    latestTime = @(time.integerValue + maxDelay.integerValue);
+                }
+                if (min == nil || time.integerValue + minDelay.integerValue < min.integerValue) {
+                    min = @(time.integerValue + minDelay.integerValue);
+                }
             }
         }
         
         // Find the time at which we have met the maximum min delays without exceding latestTime
         for (registration in registrations) {
-            time = [registration valueForKey:@"time"];
-            minDelay = [registration valueForKey:@"minDelay"];
-            if ((!haveMax || (time.integerValue + minDelay.integerValue < latestTime.integerValue)) && time.integerValue + minDelay.integerValue > bestTime.integerValue) {
-                //Ensure no super long wait due to outliers by only including times within the threshold from the current minimum
-                if ((time.integerValue + minDelay.integerValue - min.integerValue) <= MAX_BATCH_WAIT_TIME) {
-                    //Also ensure we're not taking into account registrations that require internet when we are not connected, or are not allowed on battery when we are not charging
-                    NSNumber *minRequiredNetwork = [registration valueForKey:@"minRequiredNetwork"];
-                    BOOL allowOnBattery = [registration valueForKey:@"allowOnBattery"];
-                    if ([self getNetworkStatus] >= minRequiredNetwork.integerValue && (allowOnBattery || [self isCharging])) {
-                        bestTime = @(time.integerValue + minDelay.integerValue);
+            NSNumber *minRequiredNetwork = [registration valueForKey:@"minRequiredNetwork"];
+            NSNumber *allowOnBattery = [registration valueForKey:@"allowOnBattery"];
+            if ([self getNetworkStatus] >= minRequiredNetwork.integerValue && (allowOnBattery.intValue || [self isCharging])) {
+                time = [registration valueForKey:@"time"];
+                minDelay = [registration valueForKey:@"minDelay"];
+                if ((!haveMax || (time.integerValue + minDelay.integerValue < latestTime.integerValue)) && time.integerValue + minDelay.integerValue > bestTime.integerValue) {
+                    //Ensure no super long wait due to outliers by only including times within the threshold from the current minimum
+                    if ((time.integerValue + minDelay.integerValue - min.integerValue) <= MAX_BATCH_WAIT_TIME) {
+                            bestTime = @(time.integerValue + minDelay.integerValue);
                     }
                 }
             }
         }
+        NSLog(@"Best Time: %@", bestTime);
         if (bestTime == 0) {
             CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No viable registration to schedule"];
             [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
         } else {
-            CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDouble:[bestTime integerValue]];
-            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+            if (command == nil) {
+                CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDouble:[bestTime integerValue]];
+                [result setKeepCallback:[NSNumber numberWithBool:YES]];
+                [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
+            } else {
+                CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDouble:[bestTime integerValue]];
+                [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+            }
         }
     });
 }
