@@ -5,9 +5,7 @@
     set: eventSetter('sync')
 });
 
-Registration = function() {
-    return this;
-};
+Registration = function() {};
 
 Registration.prototype.unregister = function() {
     unregisterSync(this.id);
@@ -15,7 +13,6 @@ Registration.prototype.unregister = function() {
 
 SyncEvent = function() {
     this.registration = new Registration();
-    return this;
 };
 
 SyncEvent.prototype = new ExtendableEvent('sync');
