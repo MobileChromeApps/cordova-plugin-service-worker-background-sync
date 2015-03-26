@@ -137,7 +137,16 @@ SyncManager.prototype.getRegistration = function(regId) {
 };
 
 SyncManager.prototype.hasPermission = function() {
-    return Promise.resolve(SyncPermissionStatus.granted);
+    return new Promise(function(resolve, reject) {
+	var success = function (message) {
+	    if (message === "granted") {
+		resolve(SyncPermissionStatus.granted);
+	    } else {
+		resolve(SyncPermissionStatus.denied);
+	    }
+	};
+	exec(success, null, "BackgroundSync", "hasPermission", []);
+    });
 };
 
 navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
