@@ -349,7 +349,7 @@
 		done();
 	    });
 	});
-	it("expired sync should unregister without firing", function (done) {
+	it("expired sync should unregister without firing (will fail if phone is charging)", function (done) {
 	    var syncCount = 0;
 	    messageCallback = function(event) {
 		syncCount++;
