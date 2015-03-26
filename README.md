@@ -16,13 +16,13 @@ cordova plugin rm cordova-plugin-background-sync
 
 ##Examples
 Here are a few examples that outline the basic usage of background sync.
-####Getting Service Worker Registration
+###Getting Service Worker Registration
 ```javascript
 navigator.serviceWorker.ready.then(function (serviceWorkerRegistration) {  
     ... //Most of your background sync related code should go in here
 }
 ```
-####Checking Permission
+###Checking Permission
 In the iOS implementation of background sync, permission defaults to granted. However, the user can disable background refresh capabilities manually. If permission is denied, sync events can still be executed in the foreground, but no sync events will be executed while the app is idle or in the background.
 ```javascript
 serviceWorkerRegistration.syncManager.hasPermission().then(function(permissionStatus) {
@@ -35,7 +35,7 @@ serviceWorkerRegistration.syncManager.hasPermission().then(function(permissionSt
     }
 });
 ```
-####Registering Sync Events
+###Registering Sync Events
 You can register sync events from both the page and the service worker context. Check out [this explainer](https://github.com/slightlyoff/BackgroundSync/blob/master/explainer.md) for details about the registration options.
 ```javascript
 serviceWorkerRegistration.syncManager.register(
@@ -54,7 +54,7 @@ function() { // Failure
      // There was a problem while registering a sync event
 });
 ```
-####Retreiving Sync Event Registrations
+###Looking Up Sync Event Registrations
 ```javascript
 // Get all sync event registrations
 serviceWorkerRegistration.syncManager.getRegistrations().then(function(regs){
@@ -70,7 +70,8 @@ function (err) {
     // We don't have any syncs registered
     console.log(err);
 });
-
+```
+```javascript
 // Get a specific sync event registration by Id
 serviceWorkerRegistration.syncManager.getRegistration("exampleSync").then(function(reg) {
     // Do something with the registration
@@ -81,7 +82,7 @@ function(err) {
     console.log(err);
 });
 ```
-####Handling Sync Events
+###Handling Sync Events
 All sync events will be dispatched to the same ```onsync``` event handler in your service worker script. The event handler is passed an event object which has a registration property that contains all of the registration options of the sync registration that triggered this event.
 ```javascript
 this.onsync = function(event) {
