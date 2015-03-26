@@ -21,6 +21,7 @@
 
     <!-- Assets for use by service worker -->
     <asset src="www/sw_assets/sync.js" target="sw_assets/sync.js" />
+    <asset src="www/sw_assets/syncmanagerasset.js" target="sw_assets/syncmanagerasset.js" />
 
     <platform name="ios">
 	<config-file target="config.xml" parent="/*">

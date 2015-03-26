@@ -59,6 +59,7 @@ CDVBackgroundSync *backgroundSync;
     [self unregisterSetup];
     [self networkCheckSetup];
     [self initBackgroundFetchHandler];
+    [self setupServiceWorkerRegister];
 }
 
 - (void)initBackgroundFetchHandler
@@ -95,15 +96,34 @@ CDVBackgroundSync *backgroundSync;
     }
 }
 
-- (void)register:(CDVInvokedUrlCommand*)command
+- (void)cordovaRegister:(CDVInvokedUrlCommand*)command
 {
-    NSString *regId = [[command argumentAtIndex:0] objectForKey:@"id"];
+    [self register:[command argumentAtIndex:0]];
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+}
+
+- (void)setupServiceWorkerRegister
+{
+    __weak CDVBackgroundSync* weakSelf = self;
+    serviceWorker.context[@"CDVBackgroundSync_register"] = ^(JSValue *registration, JSValue *callback) {
+        [weakSelf register:registration.toDictionary];
+        [callback callWithArguments:nil];
+    };
+    serviceWorker.context[@"CDVBackgroundSync_getBestForegroundSyncTime"] = ^() {
+        [weakSelf getBestForegroundSyncTime:nil];
+    };
+}
+
+- (void)register:(NSDictionary *)syncRegistration
+{
+    NSString *regId = [syncRegistration objectForKey:@"id"];
     [self validateId:&regId];
     [self unregisterSyncById: regId];
     if (registrationList == nil) {
-        registrationList = [NSMutableDictionary dictionaryWithObject:[command argumentAtIndex:0] forKey:regId];
+        registrationList = [NSMutableDictionary dictionaryWithObject:syncRegistration forKey:regId];
     } else {
-        [registrationList setObject:[command argumentAtIndex:0] forKey:regId];
+        [registrationList setObject:syncRegistration forKey:regId];
     }
     NSLog(@"Registering %@", regId);
     
@@ -113,8 +133,6 @@ CDVBackgroundSync *backgroundSync;
         [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
         [defaults synchronize];
     });
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
-    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
 - (void)checkIfIdle:(CDVInvokedUrlCommand*)command

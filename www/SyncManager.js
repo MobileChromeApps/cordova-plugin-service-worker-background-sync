@@ -100,7 +100,7 @@ SyncManager.prototype.register = function(syncRegistrationOptions) {
 	    reject(options); 
 	};
 	// register does not dispatch an error
-	exec(success, fail, "BackgroundSync", "register", [options]);
+	exec(success, fail, "BackgroundSync", "cordovaRegister", [options]);
     });
 };
 
