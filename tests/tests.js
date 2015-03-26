@@ -349,7 +349,7 @@
 		done();
 	    });
 	});
-	it("expired sync should unregister without firing (will fail if phone is charging)", function (done) {
+	it("expired sync should unregister without firing", function (done) {
 	    var syncCount = 0;
 	    messageCallback = function(event) {
 		syncCount++;
@@ -365,7 +365,7 @@
 		});
 	    };
 	    window.addEventListener('message', messageCallback);
-	    swreg.syncManager.register({id:"Max", maxDelay:200, allowOnBattery: false}).then(function (reg) {
+	    swreg.syncManager.register({id:"Max", maxDelay:200, idleRequired:true}).then(function (reg) {
 		swreg.syncManager.register({id:"Nomax", minDelay: 230}).then(function () {
 		    swreg.syncManager.getRegistrations().then(function (regs) {
 			expect(regs.length).toEqual(2);

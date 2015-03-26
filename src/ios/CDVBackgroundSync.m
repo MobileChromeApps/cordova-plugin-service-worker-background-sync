@@ -126,13 +126,10 @@ CDVBackgroundSync *backgroundSync;
         [registrationList setObject:syncRegistration forKey:regId];
     }
     NSLog(@"Registering %@", regId);
-    
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
-        //Save the list
-        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-        [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
-        [defaults synchronize];
-    });
+    //Save the list
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
+    [defaults synchronize];
 }
 
 - (void)checkIfIdle:(CDVInvokedUrlCommand*)command
@@ -194,11 +191,9 @@ CDVBackgroundSync *backgroundSync;
         NSLog(@"Unregistering %@", id);
         [registrationList removeObjectForKey:id];
         
-        dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void) {
-            NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-            [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
-            [defaults synchronize];
-        });
+        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+        [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
+        [defaults synchronize];
     } else {
         NSLog(@"Could not find %@ to unregister", id);
     }
@@ -391,7 +386,8 @@ CDVBackgroundSync *backgroundSync;
         for (registration in registrations) {
             NSNumber *minRequiredNetwork = [registration valueForKey:@"minRequiredNetwork"];
             NSNumber *allowOnBattery = [registration valueForKey:@"allowOnBattery"];
-            if ([self getNetworkStatus] >= minRequiredNetwork.integerValue && (allowOnBattery.intValue || [self isCharging])) {
+            NSNumber *idleRequired = [registration valueForKey:@"idleRequired"];
+            if ([self getNetworkStatus] >= minRequiredNetwork.integerValue && (allowOnBattery.intValue || [self isCharging]) && !idleRequired.intValue) {
                 time = [registration valueForKey:@"time"];
                 maxDelay = [registration valueForKey:@"maxDelay"];
                 minDelay = [registration valueForKey:@"minDelay"];
@@ -409,7 +405,8 @@ CDVBackgroundSync *backgroundSync;
         for (registration in registrations) {
             NSNumber *minRequiredNetwork = [registration valueForKey:@"minRequiredNetwork"];
             NSNumber *allowOnBattery = [registration valueForKey:@"allowOnBattery"];
-            if ([self getNetworkStatus] >= minRequiredNetwork.integerValue && (allowOnBattery.intValue || [self isCharging])) {
+            NSNumber *idleRequired = [registration valueForKey:@"idleRequired"];
+            if ([self getNetworkStatus] >= minRequiredNetwork.integerValue && (allowOnBattery.intValue || [self isCharging]) && !idleRequired.intValue) {
                 time = [registration valueForKey:@"time"];
                 minDelay = [registration valueForKey:@"minDelay"];
                 if ((!haveMax || (time.integerValue + minDelay.integerValue < latestTime.integerValue)) && time.integerValue + minDelay.integerValue > bestTime.integerValue) {
