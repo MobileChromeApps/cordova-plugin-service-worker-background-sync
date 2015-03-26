@@ -175,6 +175,30 @@
 		done();
 	    });
 	});
+	it("getRegistration rejects on empty list", function (done) {
+	    swreg.syncManager.getRegistration("nonexistent").then(function () {
+		expect(false).toBe(true);
+		done();
+	    },
+	    function () {
+		done();
+	    });
+	});
+	it("getRegistration for nonexistent id rejects", function (done) {
+	    swreg.syncManager.register({id:"exists", minDelay: 1000}).then(function () {
+		swreg.syncManager.getRegistration("nonexistent").then(function () {
+		    expect(false).toBe(true);
+		    done();
+		},
+		function () {
+		    done();
+		});
+	    },
+	    function () {
+		expect(false).toBe(true);
+		done();
+	    });
+	});
 	it("empty registration creates instant sync", function (done) {
 	    messageCallback = function() {
 		done();

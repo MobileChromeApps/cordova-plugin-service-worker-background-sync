@@ -61,6 +61,7 @@ CDVBackgroundSync *backgroundSync;
     [self initBackgroundFetchHandler];
     [self setupServiceWorkerRegister];
     [self setupServiceWorkerGetRegistrations];
+    [self setupServiceWorkerGetRegistration];
 }
 
 - (void)initBackgroundFetchHandler
@@ -170,13 +171,25 @@ CDVBackgroundSync *backgroundSync;
 - (void)getRegistration:(CDVInvokedUrlCommand*)command
 {
     NSString *id = [command argumentAtIndex:0];
-    if (registrationList != nil && [registrationList count] != 0) {
+    if ([registrationList objectForKey:id]) {
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:[registrationList objectForKey:id]];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     } else {
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Preexisting Registrations"];
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[NSString stringWithFormat:@"Could not find %@", id]];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     }
+}
+
+- (void)setupServiceWorkerGetRegistration
+{
+    __weak CDVBackgroundSync* weakSelf = self;
+    serviceWorker.context[@"CDVBackgroundSync_getRegistration"] = ^(JSValue *id, JSValue *successCallback, JSValue *failureCallback) {
+        if ([weakSelf.registrationList objectForKey:id.toString]) {
+            [successCallback callWithArguments:[NSArray arrayWithObject:[weakSelf.registrationList objectForKey:id.toString]]];
+        } else {
+            [failureCallback callWithArguments:[NSArray arrayWithObject:[NSString stringWithFormat:@"Could not find %@", id.toString]]];
+        }
+    };
 }
 
 - (void)unregisterSetup

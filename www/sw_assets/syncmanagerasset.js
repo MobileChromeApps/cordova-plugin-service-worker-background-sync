@@ -71,3 +71,17 @@ syncManager.getRegistrations = function () {
 	CDVBackgroundSync_getRegistrations(success, failure);
     });
 };
+syncManager.getRegistration = function (id) {
+    return new Promise(function(resolve, reject) {
+	var success = function(reg) {
+	    reg.unregister = function() {
+		unregisterSync(reg.id);
+	    };
+	    resolve(reg);
+	};
+	var failure = function(err) {
+	    reject(err);
+	};
+	CDVBackgroundSync_getRegistration(id, success, failure);
+    });
+};
