@@ -55,4 +55,19 @@ syncManager.register = function (syncRegistrationOptions) {
 	CDVBackgroundSync_register(options, success);
     });
 };
-
+syncManager.getRegistrations = function () {
+    return new Promise(function(resolve, reject) {
+	var success = function(regs) {
+	    regs.forEach(function(reg) {
+		reg.unregister = function() {
+		    unregisterSync(reg.id);
+		};
+	    });
+	    resolve(regs);
+	};
+	var failure = function(err) {
+	    reject(err);
+	};
+	CDVBackgroundSync_getRegistrations(success, failure);
+    });
+};

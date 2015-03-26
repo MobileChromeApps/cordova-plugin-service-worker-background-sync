@@ -60,6 +60,7 @@ CDVBackgroundSync *backgroundSync;
     [self networkCheckSetup];
     [self initBackgroundFetchHandler];
     [self setupServiceWorkerRegister];
+    [self setupServiceWorkerGetRegistrations];
 }
 
 - (void)initBackgroundFetchHandler
@@ -132,17 +133,6 @@ CDVBackgroundSync *backgroundSync;
     [defaults synchronize];
 }
 
-- (void)checkIfIdle:(CDVInvokedUrlCommand*)command
-{
-    if (completionHandler != nil) {
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-    } else {
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"notIdle"];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-    }
-}
-
 - (void)getRegistrations:(CDVInvokedUrlCommand*)command
 {
     if (registrationList != nil && [registrationList count] != 0) {
@@ -150,6 +140,29 @@ CDVBackgroundSync *backgroundSync;
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     } else {
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Preexisting Registrations"];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    }
+}
+
+- (void)setupServiceWorkerGetRegistrations
+{
+    __weak CDVBackgroundSync* weakSelf = self;
+    serviceWorker.context[@"CDVBackgroundSync_getRegistrations"] = ^(JSValue *successCallback, JSValue *failureCallback) {
+        if (weakSelf.registrationList != nil && [weakSelf.registrationList count] != 0) {
+            [successCallback callWithArguments:[NSArray arrayWithObject:[weakSelf.registrationList allValues]]];
+        } else {
+            [failureCallback callWithArguments:[NSArray arrayWithObject:@"No Registrations"]];
+        }
+    };
+}
+
+- (void)checkIfIdle:(CDVInvokedUrlCommand*)command
+{
+    if (completionHandler != nil) {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+    } else {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"notIdle"];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     }
 }
