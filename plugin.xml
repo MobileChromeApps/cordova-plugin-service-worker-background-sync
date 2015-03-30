@@ -7,7 +7,7 @@
     <license>Apache 2.0</license>
     <keywords>cordova,backgroundsync</keywords>
 
-    <dependency id="org.apache.cordova.serviceworker" url="https://github.com/mwoghiren/cordova-plugin-serviceworker.git" />
+    <dependency id="org.apache.cordova.serviceworker" url="https://github.com/MobileChromeApps/cordova-plugin-serviceworker.git" />
 
     <js-module src="www/SyncManager.js" name="SyncManager">
 	<clobbers target="SyncManager" />

@@ -136,11 +136,11 @@ CDVBackgroundSync *backgroundSync;
 
 - (void)getRegistrations:(CDVInvokedUrlCommand*)command
 {
-    if (registrationList != nil && [registrationList count] != 0) {
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:[registrationList allValues]];
+    if (registrationList == nil) {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:[NSArray array]];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     } else {
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Preexisting Registrations"];
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:[registrationList allValues]];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     }
 }
@@ -197,7 +197,7 @@ CDVBackgroundSync *backgroundSync;
     __weak CDVBackgroundSync* weakSelf = self;
     
     // Set up service worker unregister event
-    serviceWorker.context[@"unregisterSync"] = ^(JSValue *registrationId) {
+    serviceWorker.context[@"CDVBackgroundSync_unregisterSync"] = ^(JSValue *registrationId) {
         [weakSelf unregisterSyncById:[registrationId toString]];
     };
 }

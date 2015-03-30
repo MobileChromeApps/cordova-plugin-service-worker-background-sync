@@ -94,10 +94,11 @@
 	});
 	it("getRegistrations with empty list", function (done) {
 	    swreg.syncManager.getRegistrations().then(function (regs) {
-		expect(false).toBe(true);
+		expect(regs.length).toEqual(0);
 		done();
 	    },
 	    function (err) {
+		expect(false).toBe(true);
 		done();
 	    });
 	});
@@ -297,15 +298,16 @@
 	    messageCallback = function(event) {
 		syncCount++;
 		if (event.data.name === "instant") {
-		    expect(Date.now() - instantDispatchTime).toBeGreaterThan(500);
+		    expect(Date.now() - instantDispatchTime).toBeGreaterThan(499);
 		}
 		if (syncCount == 2) {
 		    // Ensure the registration list is empty
 		    swreg.syncManager.getRegistrations().then(function (regs) {
-			expect(false).toBe(true);
+			expect(regs.length).toEqual(0);
 			done();
 		    },
 		    function () {
+			expect(false).toBe(true);
 			done();
 		    });
 		}
@@ -346,10 +348,11 @@
 		if (syncCount == 2) {
 		    // Ensure the registration list is empty
 		    swreg.syncManager.getRegistrations().then(function (regs) {
-			expect(false).toBe(true);
+			expect(regs.length).toEqual(0);
 			done();
 		    },
 		    function () {
+			expect(false).toBe(true);
 			done();
 		    });
 		}
@@ -381,10 +384,11 @@
 
 		// Ensure the registration list is empty
 		swreg.syncManager.getRegistrations().then(function (regs) {
-		    expect(false).toBe(true);
+		    expect(regs.length).toEqual(0);
 		    done();
 		},
 		function () {
+		    expect(false).toBe(true);
 		    done();
 		});
 	    };
