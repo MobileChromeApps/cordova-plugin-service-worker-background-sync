@@ -54,7 +54,7 @@ CDVBackgroundSync *backgroundSync;
 {
     [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalMinimum];
     [self restoreRegistrations];
-    self.serviceWorker = [(CDVViewController*)self.viewController getCommandInstance:@"ServiceWorker"];
+    self.serviceWorker = [self.commandDelegate getCommandInstance:@"ServiceWorker"];
     [self syncResponseSetup];
     [self unregisterSetup];
     [self networkCheckSetup];
@@ -150,9 +150,9 @@ CDVBackgroundSync *backgroundSync;
     __weak CDVBackgroundSync* weakSelf = self;
     serviceWorker.context[@"CDVBackgroundSync_getRegistrations"] = ^(JSValue *successCallback, JSValue *failureCallback) {
         if (weakSelf.registrationList != nil && [weakSelf.registrationList count] != 0) {
-            [successCallback callWithArguments:[NSArray arrayWithObject:[weakSelf.registrationList allValues]]];
+            [successCallback callWithArguments:@[[weakSelf.registrationList allValues]]];
         } else {
-            [failureCallback callWithArguments:[NSArray arrayWithObject:@"No Registrations"]];
+            [failureCallback callWithArguments:@[@"No Registrations"]];
         }
     };
 }
@@ -185,9 +185,9 @@ CDVBackgroundSync *backgroundSync;
     __weak CDVBackgroundSync* weakSelf = self;
     serviceWorker.context[@"CDVBackgroundSync_getRegistration"] = ^(JSValue *id, JSValue *successCallback, JSValue *failureCallback) {
         if ([weakSelf.registrationList objectForKey:id.toString]) {
-            [successCallback callWithArguments:[NSArray arrayWithObject:[weakSelf.registrationList objectForKey:id.toString]]];
+            [successCallback callWithArguments:@[[weakSelf.registrationList objectForKey:id.toString]]];
         } else {
-            [failureCallback callWithArguments:[NSArray arrayWithObject:[NSString stringWithFormat:@"Could not find %@", id.toString]]];
+            [failureCallback callWithArguments:@[@"Could not find %@", id.toString]];
         }
     };
 }
@@ -351,7 +351,7 @@ CDVBackgroundSync *backgroundSync;
     }
     dispatchedSyncs = @(dispatchedSyncs.integerValue + 1);
     
-    NSString *message = [command argumentAtIndex:0];
+    NSDictionary *message = [command argumentAtIndex:0];
     
     // If we need all of the object properties
     NSError *error;

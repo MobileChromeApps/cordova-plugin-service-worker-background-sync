@@ -31,10 +31,12 @@ SyncRegistration.prototype.unregister = function() {
 };
 
 function SyncEvent() {
+    ExtendableEvent.call(this, 'sync');
     this.registration = new SyncRegistration();
 }
 
-SyncEvent.prototype = new ExtendableEvent('sync');
+SyncEvent.prototype = Object.create(ExtendableEvent.prototype);
+SyncEvent.constructor = SyncEvent;
 
 FireSyncEvent = function(data) {
     var ev = new SyncEvent();
@@ -46,7 +48,7 @@ FireSyncEvent = function(data) {
     ev.registration.allowOnBattery = data.allowOnBattery;
     ev.registration.idleRequired = data.idleRequired;
     dispatchEvent(ev);
-    if(ev.promises instanceof Array) {
+    if(ev.promises && ev.promises.length) {
 	return Promise.all(ev.promises).then(function(){
 		sendSyncResponse(0, data.id);
 	    },function(){
