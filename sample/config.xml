@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <widget id="io.cordova.backgroundsyncdemo" version="0.0.1" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
-    <preference name="service_worker" value="sw.js"></preference>
+    <preference name="serviceworker" value="sw.js"></preference>
     <name>BackgroundSyncDemo</name>
     <description>
         A sample Apache Cordova application that responds to the deviceready event.
