@@ -98,7 +98,7 @@ function scheduleForegroundSync(time) {
 	clearTimeout(timeoutTracker);
     }
     timeoutTracker = setTimeout(function() {
-	exec(null, syncCheck, "BackgroundSync", "checkIfIdle", []);
+	exec(syncCheck, null, "BackgroundSync", "callIfNotIdle", []);
     }, time - Date.now());
 }
 
@@ -121,7 +121,7 @@ SyncManager.prototype.register = function(syncRegistrationOptions) {
 		resolve(options);
 	    };
 	    // Find the time for the next foreground sync
-	    exec(innerSuccess, null, "BackgroundSync", "getBestForegroundSyncTime", []);
+	    exec(innerSuccess, resolve, "BackgroundSync", "computeBestForegroundSyncTime", []);
 	};
 	// register does not dispatch an error
 	exec(success, null, "BackgroundSync", "cordovaRegister", [options]);
