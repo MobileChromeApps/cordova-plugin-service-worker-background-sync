@@ -164,7 +164,7 @@ SyncManager.prototype.hasPermission = function() {
 
 navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
     serviceWorkerRegistration.syncManager = new SyncManager();
-    exec(syncCheck, scheduleForegroundSync, "BackgroundSync", "initBackgroundSync", []);
+    exec(syncCheck, scheduleForegroundSync, "BackgroundSync", "setupBackgroundSync", []);
 });
  
 module.exports = SyncManager;

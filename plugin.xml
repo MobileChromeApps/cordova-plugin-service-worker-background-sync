@@ -34,7 +34,6 @@
 		<string>fetch</string>
 	    </array>
 	</config-file>
-	<header-file src="src/ios/CDVBackgroundSync.h" />
 	<source-file src="src/ios/CDVBackgroundSync.m" />
 	<header-file src="src/ios/Reachability.h" />
 	<source-file src="src/ios/Reachability.m" />

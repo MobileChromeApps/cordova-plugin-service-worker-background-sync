@@ -48,8 +48,8 @@ FireSyncEvent = function(data) {
     ev.registration.allowOnBattery = data.allowOnBattery;
     ev.registration.idleRequired = data.idleRequired;
     dispatchEvent(ev);
-    if(ev.promises && ev.promises.length) {
-	return Promise.all(ev.promises).then(function(){
+    if(Array.isArray(ev._promises)) {
+	return Promise.all(ev._promises).then(function(){
 		sendSyncResponse(0, data.id);
 	    },function(){
 		sendSyncResponse(2, data.id);

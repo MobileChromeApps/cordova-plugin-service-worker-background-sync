@@ -18,20 +18,30 @@
  */
 
 #import <Cordova/CDV.h>
-#import "CDVBackgroundSync.h"
 #import "Reachability.h"
 #import <JavaScriptCore/JavaScriptCore.h>
 #import <objc/runtime.h>
+#import "CDVServiceWorker.h"
 
-NSString * REGISTRATION_LIST_STORAGE_KEY;
-const NSInteger MAX_BATCH_WAIT_TIME = 1000*60*30;
+static NSString * REGISTRATION_LIST_STORAGE_KEY;
+static const NSInteger MAX_BATCH_WAIT_TIME = 1000*60*30;
 
-UIBackgroundFetchResult fetchResult = UIBackgroundFetchResultNoData;
+static UIBackgroundFetchResult fetchResult = UIBackgroundFetchResultNoData;
 
-NSNumber *dispatchedSyncs;
-NSNumber *completedSyncs;
+static NSNumber *dispatchedSyncs;
+static NSNumber *completedSyncs;
 
-CDVBackgroundSync *backgroundSync;
+@interface CDVBackgroundSync : CDVPlugin {}
+
+typedef void(^Completion)(UIBackgroundFetchResult);
+
+@property (nonatomic, copy) NSString *syncCheckCallback;
+@property (nonatomic, copy) Completion completionHandler;
+@property (nonatomic, strong) CDVServiceWorker *serviceWorker;
+@property (nonatomic, strong) NSMutableDictionary *registrationList;
+@end
+
+static CDVBackgroundSync *backgroundSync;
 
 @implementation CDVBackgroundSync
 
@@ -47,24 +57,26 @@ CDVBackgroundSync *backgroundSync;
     NSMutableDictionary *restored = [[defaults objectForKey:REGISTRATION_LIST_STORAGE_KEY] mutableCopy];
     if (restored != nil) {
         registrationList = restored;
+        if ([registrationList count] != 0) {
+            [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalMinimum];
+        }
     }
 }
 
 - (void)pluginInitialize
 {
-    [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalMinimum];
     [self restoreRegistrations];
     self.serviceWorker = [self.commandDelegate getCommandInstance:@"ServiceWorker"];
     [self syncResponseSetup];
     [self unregisterSetup];
     [self networkCheckSetup];
-    [self initBackgroundFetchHandler];
+    [self setupBackgroundFetchHandler];
     [self setupServiceWorkerRegister];
     [self setupServiceWorkerGetRegistrations];
     [self setupServiceWorkerGetRegistration];
 }
 
-- (void)initBackgroundFetchHandler
+- (void)setupBackgroundFetchHandler
 {
     backgroundSync = self;
     if ([[[UIApplication sharedApplication] delegate] respondsToSelector:@selector(application:performFetchWithCompletionHandler:)]) {
@@ -77,7 +89,7 @@ CDVBackgroundSync *backgroundSync;
     }
 }
 
-- (void)initBackgroundSync:(CDVInvokedUrlCommand*)command
+- (void)setupBackgroundSync:(CDVInvokedUrlCommand*)command
 {
     self.syncCheckCallback = command.callbackId;
     CDVPluginResult *result;
@@ -132,12 +144,13 @@ CDVBackgroundSync *backgroundSync;
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
     [defaults synchronize];
+    [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalMinimum];
 }
 
 - (void)getRegistrations:(CDVInvokedUrlCommand*)command
 {
     if (registrationList == nil) {
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:[NSArray array]];
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:@[]];
         [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
     } else {
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:[registrationList allValues]];
@@ -308,6 +321,11 @@ CDVBackgroundSync *backgroundSync;
             dispatchedSyncs = [NSNumber numberWithInteger:0];
             fetchResult = UIBackgroundFetchResultNoData;
             [weakSelf getBestForegroundSyncTime:nil];
+
+            //If we have no more registrations left, turn off background fetch
+            if ([weakSelf.registrationList count] == 0) {
+                [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalNever];
+            }
         }
     };
 }
@@ -382,10 +400,9 @@ CDVBackgroundSync *backgroundSync;
 - (BOOL)isCharging
 {
     [[UIDevice currentDevice] setBatteryMonitoringEnabled:YES];
-    if ([[UIDevice currentDevice] batteryState] == UIDeviceBatteryStateCharging) {
-        return YES;
-    }
-    return NO;
+    BOOL toReturn = [[UIDevice currentDevice] batteryState] == UIDeviceBatteryStateCharging;
+    [[UIDevice currentDevice] setBatteryMonitoringEnabled:NO];
+    return toReturn;
 }
 
 - (void)hasPermission:(CDVInvokedUrlCommand*)command
@@ -458,6 +475,7 @@ CDVBackgroundSync *backgroundSync;
             CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No viable registration to schedule"];
             [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
         } else {
+            // Command is nil when getBestForegroundSyncTime is called from native after all dispatched sync events have been resolved
             if (command == nil) {
                 CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDouble:[bestTime integerValue]];
                 [result setKeepCallback:[NSNumber numberWithBool:YES]];
