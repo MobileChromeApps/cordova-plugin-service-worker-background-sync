@@ -65,10 +65,6 @@ serviceWorkerRegistration.syncManager.getRegistrations().then(function(regs){
         // You can also unregister sync events
         reg.unregister();
     });
-},
-function (err) {
-    // We don't have any syncs registered
-    console.log(err);
 });
 ```
 ```javascript
