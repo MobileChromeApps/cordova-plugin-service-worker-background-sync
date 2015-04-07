@@ -18,7 +18,7 @@
  */
 
 #import <Cordova/CDV.h>
-#import "Reachability.h"
+#import "CDVConnection.h"
 #import <JavaScriptCore/JavaScriptCore.h>
 #import <objc/runtime.h>
 #import "CDVServiceWorker.h"
@@ -68,11 +68,11 @@ static CDVBackgroundSync *backgroundSync;
     self.serviceWorker = [self.commandDelegate getCommandInstance:@"ServiceWorker"];
     [self setupSyncResponse];
     [self setupUnregister];
-    [self setupNetworkCheck];
     [self setupBackgroundFetchHandler];
     [self setupServiceWorkerRegister];
     [self setupServiceWorkerGetRegistrations];
     [self setupServiceWorkerGetRegistration];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(networkCheckCallback) name:kReachabilityChangedNotification object:nil];
 }
 
 - (void)setupBackgroundFetchHandler
@@ -320,20 +320,17 @@ static CDVBackgroundSync *backgroundSync;
     };
 }
 
-- (void)setupNetworkCheck
+- (void)networkCheckCallback
 {
-    Reachability* reach = [Reachability reachabilityForInternetConnection];
-    reach.reachableBlock = ^(Reachability*reach)
+    if ([self getNetworkStatus])
     {
         NSLog(@"Regained network");
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"notIdle"];
         [result setKeepCallback:[NSNumber numberWithBool:YES]];
         [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
-    };
-    reach.unreachableBlock = ^(Reachability*reach) {
+    } else {
         NSLog(@"Lost Connection");
-    };
-    [reach startNotifier];
+    }
 }
 
 - (void)fetchNewDataWithCompletionHandler:(Completion)handler
@@ -373,18 +370,23 @@ static CDVBackgroundSync *backgroundSync;
 
 - (void)getNetworkAndBatteryStatus:(CDVInvokedUrlCommand*)command
 {
-    NetworkStatus networkStatus = [self getNetworkStatus];
+    NSInteger networkStatus = [self getNetworkStatus];
     BOOL isCharging = [self isCharging];
     NSArray *toReturn = @[@(networkStatus),@(isCharging)];
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:toReturn];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
-- (NetworkStatus)getNetworkStatus
+- (NSInteger)getNetworkStatus
 {
-    Reachability* reach = [Reachability reachabilityForInternetConnection];
-    [reach startNotifier];
-    return [reach currentReachabilityStatus];
+    CDVConnection *connection = [self.commandDelegate getCommandInstance:@"NetworkStatus"];
+    if ([connection.connectionType isEqualToString:@"wifi"]) {
+        return 2;
+    } else if ([connection.connectionType isEqualToString:@"cellular"]) {
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
 - (BOOL)isCharging
