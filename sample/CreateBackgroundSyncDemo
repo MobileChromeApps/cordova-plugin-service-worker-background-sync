@@ -2,7 +2,7 @@
 cordova create BackgroundSyncDemo io.cordova.backgroundsyncdemo BackgroundSyncDemo
 cd BackgroundSyncDemo
 cordova platform add ios
-cordova plugin add https://github.com/mwoghiren/cordova-plugin-serviceworker.git
+cordova plugin add https://github.com/MobileChromeApps/cordova-plugin-serviceworker.git 
 cordova plugin add https://github.com/imintz/cordova-plugin-background-sync.git
 cordova plugin add https://github.com/imintz/cordova-plugin-notification.git
 mv 'plugins/cordova-plugin-background-sync/sample/config.xml' 'config.xml'
