@@ -412,12 +412,12 @@ static CDVBackgroundSync *backgroundSync;
 {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void){
         NSArray* registrations = [registrationList allValues];
-        long latestTime = 0;
-        long bestTime = 0;
-        long time = 0;
-        long maxDelay = 0;
-        long minDelay = 0;
-        long min = 0;
+        NSInteger latestTime = 0;
+        NSInteger bestTime = 0;
+        NSInteger time = 0;
+        NSInteger maxDelay = 0;
+        NSInteger minDelay = 0;
+        NSInteger min = 0;
         NSDictionary *registration;
         BOOL haveMax = NO;
         if (registrations.count == 0) {
@@ -430,13 +430,13 @@ static CDVBackgroundSync *backgroundSync;
         }
         // Get the latest time without having a sync registration expire , also get minimum registration dispatch time
         for (registration in registrations) {
-            int minRequiredNetwork = [registration[@"minRequiredNetwork"] intValue];
-            int allowOnBattery = [registration[@"allowOnBattery"] intValue];
-            int idleRequired = [registration[@"idleRequired"] intValue];
+            NSInteger minRequiredNetwork = [registration[@"minRequiredNetwork"] integerValue];
+            NSInteger allowOnBattery = [registration[@"allowOnBattery"] integerValue];
+            NSInteger idleRequired = [registration[@"idleRequired"] integerValue];
             if ([self getNetworkStatus] >= minRequiredNetwork && (allowOnBattery || [self isCharging]) && !idleRequired) {
-                time = [registration[@"time"] longValue];
-                maxDelay = [registration[@"maxDelay"] longValue];
-                minDelay = [registration[@"minDelay"] longValue];
+                time = [registration[@"time"] integerValue];
+                maxDelay = [registration[@"maxDelay"] integerValue];
+                minDelay = [registration[@"minDelay"] integerValue];
                 if ((((time + maxDelay) < latestTime) || !latestTime) && maxDelay) {
                     haveMax = YES;
                     latestTime = time + maxDelay;
@@ -449,12 +449,12 @@ static CDVBackgroundSync *backgroundSync;
         
         // Find the time at which we have met the maximum min delays without exceding latestTime
         for (registration in registrations) {
-            int minRequiredNetwork = [registration[@"minRequiredNetwork"] intValue];
-            int allowOnBattery = [registration[@"allowOnBattery"] intValue];
-            int idleRequired = [registration[@"idleRequired"] intValue];
+            NSInteger minRequiredNetwork = [registration[@"minRequiredNetwork"] integerValue];
+            NSInteger allowOnBattery = [registration[@"allowOnBattery"] integerValue];
+            NSInteger idleRequired = [registration[@"idleRequired"] integerValue];
             if ([self getNetworkStatus] >= minRequiredNetwork && (allowOnBattery || [self isCharging]) && !idleRequired) {
-                time = [registration[@"time"] longValue];
-                minDelay = [registration[@"minDelay"] longValue];
+                time = [registration[@"time"] integerValue];
+                minDelay = [registration[@"minDelay"] integerValue];
                 if ((!haveMax || (time + minDelay < latestTime)) && ((time + minDelay) > bestTime)) {
                     //Ensure no super long wait due to outliers by only including times within the threshold from the current minimum
                     if ((time + minDelay - min) <= MAX_BATCH_WAIT_TIME) {
