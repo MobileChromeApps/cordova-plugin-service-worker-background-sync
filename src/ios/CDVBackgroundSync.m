@@ -94,7 +94,7 @@ static CDVBackgroundSync *backgroundSync;
     CDVPluginResult *result;
     if ([registrationList count] != 0) {
         result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"notIdle"];
-        [result setKeepCallback:[NSNumber numberWithBool:YES]];
+        [result setKeepCallback:@(YES)];
         [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
     }
 }
@@ -282,11 +282,10 @@ static CDVBackgroundSync *backgroundSync;
         } else {
             //Create a backoff by re-time stamping the registration
             NSLog(@"Pushing Back");
-            NSNumber *time = @([NSNumber numberWithDouble:[NSDate date].timeIntervalSince1970].doubleValue * 1000);
-            weakSelf.registrationList[regId][@"time"] = time;
+            weakSelf.registrationList[regId][@"time"] = @([NSDate date].timeIntervalSince1970 * 1000);
             NSNumber *minDelay = weakSelf.registrationList[regId][@"minDelay"];
             if (minDelay.doubleValue < 5000) {
-                minDelay = [NSNumber numberWithDouble:5000];
+                minDelay = @(5000);
             }
             minDelay = @(minDelay.doubleValue * 2);
             weakSelf.registrationList[regId][@"minDelay"] = minDelay;
@@ -326,7 +325,7 @@ static CDVBackgroundSync *backgroundSync;
     {
         NSLog(@"Regained network");
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"notIdle"];
-        [result setKeepCallback:[NSNumber numberWithBool:YES]];
+        [result setKeepCallback:@(YES)];
         [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
     } else {
         NSLog(@"Lost Connection");
@@ -339,7 +338,7 @@ static CDVBackgroundSync *backgroundSync;
     self.completionHandler = handler;
     if (self.syncCheckCallback) {
         CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"idle"];
-        [result setKeepCallback:[NSNumber numberWithBool:YES]];
+        [result setKeepCallback:@(YES)];
         [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
     }
 }
@@ -470,7 +469,7 @@ static CDVBackgroundSync *backgroundSync;
             // Command is nil when getBestForegroundSyncTime is called from native after all dispatched sync events have been resolved
             if (command == nil) {
                 CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDouble:bestTime];
-                [result setKeepCallback:[NSNumber numberWithBool:YES]];
+                [result setKeepCallback:@(YES)];
                 [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
             } else {
                 CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDouble:bestTime];
