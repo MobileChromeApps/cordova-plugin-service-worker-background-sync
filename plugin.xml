@@ -13,10 +13,13 @@
     <js-module src="www/SyncManager.js" name="SyncManager">
 	<clobbers target="SyncManager" />
     </js-module>
+    <js-module src="www/PeriodicSyncManager.js" name="PeriodicSyncManager">
+	<clobbers target="PeriodicSyncManager" />
+    </js-module>
     <js-module src="www/SyncRegistration.js" name="SyncRegistration">
 	<clobbers target="SyncRegistration" />
     </js-module>
-    <js-module src="www/Assets.js" name="Assets">
+    <js-module src="www/Enums.js" name="Enums">
 	<clobbers target="" />
     </js-module>
 

@@ -24,12 +24,13 @@
 #import "CDVServiceWorker.h"
 
 static NSString * REGISTRATION_LIST_STORAGE_KEY = @"CDVBackgroundSync_registrationList";
+static NSString * PERIODIC_REGISTRATION_LIST_STORAGE_KEY = @"CDVBackgroundSync_periodicRegistrationList";
 static const NSInteger MAX_BATCH_WAIT_TIME = 1000*60*30;
 
 static UIBackgroundFetchResult fetchResult = UIBackgroundFetchResultNoData;
 
-static NSInteger *dispatchedSyncs;
-static NSInteger *completedSyncs;
+static NSInteger dispatchedSyncs = 0;
+static NSInteger completedSyncs = 0;
 
 @interface CDVBackgroundSync : CDVPlugin {}
 
@@ -39,6 +40,7 @@ typedef void(^Completion)(UIBackgroundFetchResult);
 @property (nonatomic, copy) Completion completionHandler;
 @property (nonatomic, strong) CDVServiceWorker *serviceWorker;
 @property (nonatomic, strong) NSMutableDictionary *registrationList;
+@property (nonatomic, strong) NSMutableDictionary *periodicRegistrationList;
 @end
 
 static CDVBackgroundSync *backgroundSync;
@@ -49,6 +51,7 @@ static CDVBackgroundSync *backgroundSync;
 @synthesize completionHandler;
 @synthesize serviceWorker;
 @synthesize registrationList;
+@synthesize periodicRegistrationList;
 
 -(void)restoreRegistrations
 {
@@ -99,11 +102,11 @@ static CDVBackgroundSync *backgroundSync;
     }
 }
 
-+ (void)validateId:(NSString**)regId
++ (void)validateTag:(NSString**)tag
 {
     //Take null id and turn into empty string
-    if (*regId == (id)[NSNull null] || *regId == nil || [*regId isEqualToString:@"undefined"]) {
-        *regId = @"";
+    if (*tag == (id)[NSNull null] || *tag == nil || [*tag isEqualToString:@"undefined"]) {
+        *tag = @"";
     }
 }
 
@@ -121,22 +124,19 @@ static CDVBackgroundSync *backgroundSync;
         [weakSelf register:[registration toDictionary]];
         [callback callWithArguments:nil];
     };
-    serviceWorker.context[@"CDVBackgroundSync_getBestForegroundSyncTime"] = ^() {
-        [weakSelf computeBestForegroundSyncTime:nil];
-    };
 }
 
-- (void)register:(NSDictionary *)syncRegistration
+- (void)register:(NSDictionary *)registration
 {
-    NSString *regId = syncRegistration[@"id"];
-    [CDVBackgroundSync validateId:&regId];
-    [self unregisterSyncById: regId];
+    NSString *tag = registration[@"tag"];
+    [CDVBackgroundSync validateTag:&tag];
+    [self unregisterSyncByTag: tag];
     if (registrationList == nil) {
-        registrationList = [NSMutableDictionary dictionaryWithObject:syncRegistration forKey:regId];
+        registrationList = [NSMutableDictionary dictionaryWithObject:registration forKey:tag];
     } else {
-        registrationList[regId] = syncRegistration;
+        registrationList[tag] = registration;
     }
-    NSLog(@"Registering %@", regId);
+    NSLog(@"Registering %@", tag);
     //Save the list
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
@@ -157,24 +157,13 @@ static CDVBackgroundSync *backgroundSync;
 - (void)setupServiceWorkerGetRegistrations
 {
     __weak CDVBackgroundSync* weakSelf = self;
-    serviceWorker.context[@"CDVBackgroundSync_getRegistrations"] = ^(JSValue *successCallback, JSValue *failureCallback) {
+    serviceWorker.context[@"CDVBackgroundSync_getRegistrations"] = ^(JSValue *callback) {
         if (weakSelf.registrationList != nil && [weakSelf.registrationList count] != 0) {
-            [successCallback callWithArguments:@[[weakSelf.registrationList allValues]]];
+            [callback callWithArguments:@[[weakSelf.registrationList allValues]]];
         } else {
-            [failureCallback callWithArguments:@[@"No Registrations"]];
+            [callback callWithArguments:@[@[]]];
         }
     };
-}
-
-- (void)callIfNotIdle:(CDVInvokedUrlCommand*)command
-{
-    if (completionHandler == nil) {
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"notIdle"];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-    } else {
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR];
-        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-    }
 }
 
 - (void)getRegistration:(CDVInvokedUrlCommand*)command
@@ -192,11 +181,11 @@ static CDVBackgroundSync *backgroundSync;
 - (void)setupServiceWorkerGetRegistration
 {
     __weak CDVBackgroundSync* weakSelf = self;
-    serviceWorker.context[@"CDVBackgroundSync_getRegistration"] = ^(JSValue *id, JSValue *successCallback, JSValue *failureCallback) {
-        if (weakSelf.registrationList[[id toString]]) {
-            [successCallback callWithArguments:@[weakSelf.registrationList[[id toString]]]];
+    serviceWorker.context[@"CDVBackgroundSync_getRegistration"] = ^(JSValue *tag, JSValue *successCallback, JSValue *failureCallback) {
+        if (weakSelf.registrationList[[tag toString]]) {
+            [successCallback callWithArguments:@[weakSelf.registrationList[[tag toString]]]];
         } else {
-            [failureCallback callWithArguments:@[@"Could not find %@", [id toString]]];
+            [failureCallback callWithArguments:@[@"Could not find %@", [tag toString]]];
         }
     };
 }
@@ -207,29 +196,29 @@ static CDVBackgroundSync *backgroundSync;
     
     // Set up service worker unregister event
     serviceWorker.context[@"CDVBackgroundSync_unregisterSync"] = ^(JSValue *registrationId) {
-        [weakSelf unregisterSyncById:[registrationId toString]];
+        [weakSelf unregisterSyncByTag:[registrationId toString]];
     };
 }
 
 - (void)unregister:(CDVInvokedUrlCommand*)command
 {
-    [self unregisterSyncById:[command argumentAtIndex:0]];
-    
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsBool:[self unregisterSyncByTag:[command argumentAtIndex:0]]];
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
-- (void)unregisterSyncById:(NSString*)id
+- (BOOL)unregisterSyncByTag:(NSString*)tag
 {
-    [CDVBackgroundSync validateId:&id];
-    if (registrationList[id]) {
-        NSLog(@"Unregistering %@", id);
-        [registrationList removeObjectForKey:id];
+    [CDVBackgroundSync validateTag:&tag];
+    if (registrationList[tag]) {
+        NSLog(@"Unregistering %@", tag);
+        [registrationList removeObjectForKey:tag];
         
         NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
         [defaults setObject:registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
+        return YES;
     } else {
-        NSLog(@"Could not find %@ to unregister", id);
+        NSLog(@"Could not find %@ to unregister", tag);
+        return NO;
     }
 }
 
@@ -250,51 +239,70 @@ static CDVBackgroundSync *backgroundSync;
     __weak CDVBackgroundSync* weakSelf = self;
     
     //Indicate to OS success or failure and unregister syncs that have been successfully executed and are not periodic
-    serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType, JSValue *rId) {
-        NSString *regId = [rId toString];
-        [CDVBackgroundSync validateId:&regId];
-        if (completedSyncs == nil) {
-            completedSyncs = 0;
-        }
-        completedSyncs = completedSyncs + 1;
-        
-        //Response Type: 0 = New Data, 1 = No Data, 2 = Failed to Fetch
-        if ([responseType toInt32] == 0) {
-            if (fetchResult != UIBackgroundFetchResultFailed) {
-                fetchResult = UIBackgroundFetchResultNewData;
-            }
-            NSNumber* minPeriod = weakSelf.registrationList[regId][@"minPeriod"];
-            if (minPeriod.integerValue == 0) {
-                [weakSelf unregisterSyncById:regId];
-            } else {
-                NSMutableDictionary *registration = [[[NSMutableDictionary alloc] initWithDictionary:weakSelf.registrationList[regId]] mutableCopy];
-                NSLog(@"Reregistering %@", regId);
-                NSNumber *minPeriod = weakSelf.registrationList[regId][@"minPeriod"];
-                // If the event is periodic, then replace its minDelay with its minPeriod and reTimestamp it
-                registration[@"minDelay"] = minPeriod;
-                registration[@"time"] = @([NSDate date].timeIntervalSince1970 * 1000);
-                
-                // Add replace the old registration with the updated one
-                weakSelf.registrationList[regId] = registration;
-                NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-                [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
-            }
-        } else {
-            //Create a backoff by re-time stamping the registration
-            NSLog(@"Pushing Back");
-            weakSelf.registrationList[regId][@"time"] = @([NSDate date].timeIntervalSince1970 * 1000);
-            NSNumber *minDelay = weakSelf.registrationList[regId][@"minDelay"];
-            if (minDelay.doubleValue < 5000) {
-                minDelay = @(5000);
-            }
-            minDelay = @(minDelay.doubleValue * 2);
-            weakSelf.registrationList[regId][@"minDelay"] = minDelay;
-            NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-            [defaults setObject:weakSelf.registrationList forKey:REGISTRATION_LIST_STORAGE_KEY];
-            if ([responseType toInt32] == 2) {
+    serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType, JSValue *jsTag) {
+        NSString *tag = [jsTag toString];
+        [CDVBackgroundSync validateTag:&tag];
+        completedSyncs++;
+        switch ([responseType toInt32]) {
+            case 0:
+                if (fetchResult != UIBackgroundFetchResultFailed) {
+                    fetchResult = UIBackgroundFetchResultNewData;
+                }
+                [weakSelf unregisterSyncByTag:tag];
+                break;
+            case 2:
                 NSLog(@"Failed to get data");
                 fetchResult = UIBackgroundFetchResultFailed;
+            default:
+                //TODO: Create Pushback
+                break;
+        }
+        
+        if (completedSyncs == dispatchedSyncs) {
+            if (weakSelf.completionHandler != nil) {
+                NSLog(@"Executing Completion Handler");
+                weakSelf.completionHandler(fetchResult);
+                weakSelf.completionHandler = nil;
             }
+            
+            // Reset the sync count
+            completedSyncs = 0;
+            dispatchedSyncs = 0;
+            fetchResult = UIBackgroundFetchResultNoData;
+            
+            //If we have no more registrations left, turn off background fetch
+            if ([weakSelf.registrationList count] == 0) {
+                [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalNever];
+            }
+        }
+
+    };
+}
+
+- (void)setupPeriodicSyncResponse
+{
+    //create weak reference to self in order to prevent retain cycle in block
+    __weak CDVBackgroundSync* weakSelf = self;
+    
+    //Indicate to OS success or failure and unregister syncs that have been successfully executed and are not periodic
+    serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType, JSValue *jsTag) {
+        NSString *tag = [jsTag toString];
+        [CDVBackgroundSync validateTag:&tag];
+        completedSyncs++;
+        
+        switch ([responseType toInt32]) {
+            case 0:
+                if (fetchResult != UIBackgroundFetchResultFailed) {
+                    fetchResult = UIBackgroundFetchResultNewData;
+                }
+                //TODO: reschedule
+                break;
+            case 2:
+                NSLog(@"Failed to get data");
+                fetchResult = UIBackgroundFetchResultFailed;
+            default:
+                // TODO: Pushback
+                break;
         }
         
         // Make sure we received all the syncs before determining completion
@@ -309,14 +317,14 @@ static CDVBackgroundSync *backgroundSync;
             completedSyncs = 0;
             dispatchedSyncs = 0;
             fetchResult = UIBackgroundFetchResultNoData;
-            [weakSelf computeBestForegroundSyncTime:nil];
-
+            
             //If we have no more registrations left, turn off background fetch
             if ([weakSelf.registrationList count] == 0) {
                 [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalNever];
             }
         }
     };
+
 }
 
 - (void)networkCheckCallback
@@ -324,9 +332,8 @@ static CDVBackgroundSync *backgroundSync;
     if ([self getNetworkStatus])
     {
         NSLog(@"Regained network");
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"notIdle"];
-        [result setKeepCallback:@(YES)];
-        [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
+        // Dispatch all one off sync events
+        [self dispatchSyncEvents];
     } else {
         NSLog(@"Lost Connection");
     }
@@ -334,12 +341,26 @@ static CDVBackgroundSync *backgroundSync;
 
 - (void)fetchNewDataWithCompletionHandler:(Completion)handler
 {
+    // This should never happen, but just in case there are no registrations and a sync event is initiated
+    if (![registrationList count] && ![periodicRegistrationList count]) {
+        handler(UIBackgroundFetchResultNoData);
+        return;
+    }
+    
     NSLog(@"Fetching");
     self.completionHandler = handler;
-    if (self.syncCheckCallback) {
-        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"idle"];
-        [result setKeepCallback:@(YES)];
-        [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
+    if ([self getNetworkStatus]) {
+        [self dispatchSyncEvents];
+    } else {
+        fetchResult = UIBackgroundFetchResultFailed;
+    }
+    [self evaluatePeriodicSyncEvents];
+    
+    // If there is no connection during a background fetch but there exist one off registrations
+    if (![periodicRegistrationList count] && ![self getNetworkStatus]) {
+        NSLog(@"Failed to sync");
+        self.completionHandler(UIBackgroundFetchResultFailed);
+        self.completionHandler = nil;
     }
 }
 
@@ -347,24 +368,35 @@ static CDVBackgroundSync *backgroundSync;
     [backgroundSync fetchNewDataWithCompletionHandler:completionHandler];
 }
 
-- (void)dispatchSyncEvent:(CDVInvokedUrlCommand*)command
+- (void)dispatchSyncEvents
+{
+    for (NSDictionary *registration in [registrationList allValues]) {
+        //Increment the counter of dispatched syncs
+        dispatchedSyncs++;
+        
+        // If we need all of the object properties
+        NSError *error;
+        NSData *json = [NSJSONSerialization dataWithJSONObject:registration options:0 error:&error];
+        NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(%@);", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
+        [serviceWorker.context performSelectorOnMainThread:@selector(evaluateScript:) withObject:dispatchCode waitUntilDone:NO];
+    }
+}
+
+- (void)evaluatePeriodicSyncEvents
+{
+    
+}
+
+- (void)dispatchPeriodicSyncEvent:(NSDictionary *)registration
 {
     //Increment the counter of dispatched syncs
-    if (dispatchedSyncs == nil) {
-        dispatchedSyncs = 0;
-    }
-    dispatchedSyncs = dispatchedSyncs + 1;
-    
-    NSDictionary *message = [command argumentAtIndex:0];
+    dispatchedSyncs++;
     
     // If we need all of the object properties
     NSError *error;
-    NSData *json = [NSJSONSerialization dataWithJSONObject:message options:0 error:&error];
-    NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(%@);", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
+    NSData *json = [NSJSONSerialization dataWithJSONObject:registration options:0 error:&error];
+    NSString *dispatchCode = [NSString stringWithFormat:@"FirePeriodicSyncEvent(%@);", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
     [serviceWorker.context performSelectorOnMainThread:@selector(evaluateScript:) withObject:dispatchCode waitUntilDone:NO];
-    
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
-    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
 - (void)getNetworkAndBatteryStatus:(CDVInvokedUrlCommand*)command
@@ -379,6 +411,7 @@ static CDVBackgroundSync *backgroundSync;
 - (NSInteger)getNetworkStatus
 {
     CDVConnection *connection = [self.commandDelegate getCommandInstance:@"NetworkStatus"];
+    // TODO: Recall connection updateReachability so that the connection status is updated when in background
     if ([connection.connectionType isEqualToString:@"wifi"]) {
         return 2;
     } else if ([connection.connectionType isEqualToString:@"cellular"]) {

@@ -18,153 +18,56 @@
  */
 
 var exec = require('cordova/exec');
-var serviceWorker = require('org.apache.cordova.serviceworker.ServiceWorker');
-
-var networkStatus;
-var isCharging;
-var isIdle = false;
-var timeoutTracker = null;
-
-// Checks to see if the criteria have been met for this registration
-// Currently Supported Options:
-// id, minDelay, minRequiredNetwork, idleRequired, maxDelay, minPeriod, allowOnBattery
-function checkSyncRegistration(registration) {
-    if (registration.maxDelay !== 0 && (Date.now() - registration.maxDelay > registration.time)) {
-	exec(null, null, "BackgroundSync", "unregister", [registration.id]);
-	return false;
-    }
-    if (registration.idleRequired && !isIdle) {
-	return false;
-    }
-    if (Date.now() - registration.minDelay < registration.time) {
-	return false;
-    }
-    if (registration.minRequiredNetwork > networkStatus) {
-	return false;
-    }
-    if (!isCharging && !registration.allowOnBattery) {
-	return false;
-    }
-    return true;
-}
-
-function resolveRegistrations(statusVars) {
-    //Update the connection
-    networkStatus = statusVars[0];
-    isCharging = statusVars[1];
-    var success = function(regs) {
-	regs.forEach(function(reg) {
-	    if (checkSyncRegistration(reg)) {
-		exec(null, null, "BackgroundSync", "dispatchSyncEvent", [reg]);
-	    }
-	});
-    };
-    var failure = function(message) {
-	//If there are no registrations, return completion handler on background fetch
-	exec(null, null, "BackgroundSync", "markNoDataCompletion", []);
-    };
-    exec(success, failure, "BackgroundSync", "getRegistrations", []);
-}
-
-// We use this function so there are no side effects if the original options reference is modified
-// and to make sure that all of the settings are within their defined limits
-function cloneOptions(toClone) {
-    if (typeof toClone === 'undefined') {
-	toClone = {};
-    }
-    var options = new SyncRegistration();
-    options.id = toClone.id;
-    options.minDelay = toClone.minDelay || options.minDelay;
-    options.maxDelay = toClone.maxDelay || options.maxDelay;
-    options.minPeriod = toClone.minPeriod || options.minPeriod;
-    options.minRequiredNetwork = toClone.minRequiredNetwork || options.minRequiredNetwork;
-    if (typeof toClone.allowOnBattery !== 'undefined') {
-	options.allowOnBattery = toClone.allowOnBattery;
-    }
-    options.idleRequired = toClone.idleRequired || options.idleRequired;
-    // Timestamp the registration
-    options.time = Date.now();
-    return options;
-}
-
-function syncCheck(message) {
-    isIdle = (message === "idle");
-    //Check the network status and then resolve registrations
-    exec(resolveRegistrations, null, "BackgroundSync", "getNetworkAndBatteryStatus", []);
-}
-
-function scheduleForegroundSync(time) {
-    if (timeoutTracker !== null) {
-	clearTimeout(timeoutTracker);
-    }
-    timeoutTracker = setTimeout(function() {
-	exec(syncCheck, null, "BackgroundSync", "callIfNotIdle", []);
-    }, time - Date.now());
-}
-
-function nativeToJSReg(reg) {
-    var newReg = new SyncRegistration();
-    for (var key in reg) {
-        newReg[key] = reg[key];
-    }
-    return newReg;
-}
 
 function SyncManager() {}
 
 SyncManager.prototype.register = function(syncRegistrationOptions) {
     return new Promise(function(resolve,reject) {
-	var options = cloneOptions(syncRegistrationOptions);
-	var success = function() {
-	    var innerSuccess = function(time) {
-		scheduleForegroundSync(time);
-		resolve(options);
-	    };
-	    // Find the time for the next foreground sync
-	    exec(innerSuccess, resolve, "BackgroundSync", "computeBestForegroundSyncTime", []);
-	};
+	function success() {
+	    resolve(new SyncRegistration(syncRegistrationOptions));
+	}
 	// register does not dispatch an error
-	exec(success, null, "BackgroundSync", "cordovaRegister", [options]);
+	exec(success, null, "BackgroundSync", "cordovaRegister", [new SyncRegistration(syncRegistrationOptions)]);
+    });
+};
+
+SyncManager.prototype.getRegistration = function(tag) {
+    return new Promise(function(resolve, reject) {
+	tag = tag || "";
+	function success(reg) {
+	    resolve(new SyncRegistration(reg));
+	}
+	exec(success, reject, "BackgroundSync", "getRegistration", [tag]);
     });
 };
 
 SyncManager.prototype.getRegistrations = function() {
     return new Promise(function(resolve, reject) {
-	var success = function(regs) {
-	    var newRegs = regs.map(nativeToJSReg);
+	function success(regs) {
+	    var newRegs = regs.map(function (reg) { return new SyncRegistration(reg); });
 	    resolve(newRegs);
-	};
+	}
 	// getRegistrations does not fail, it returns an empty array when there are no registrations
 	exec(success, null, "BackgroundSync", "getRegistrations", []);
     });
 };
 
-SyncManager.prototype.getRegistration = function(regId) {
+SyncManager.prototype.permissionState = function() {
     return new Promise(function(resolve, reject) {
-	var success = function(reg) {
-	    reg = nativeToJSReg(reg);
-	    resolve(reg);
-	};
-	exec(success, reject, "BackgroundSync", "getRegistration", [regId]);
-    });
-};
-
-SyncManager.prototype.hasPermission = function() {
-    return new Promise(function(resolve, reject) {
-	var success = function (message) {
+	function success(message) {
 	    if (message === "granted") {
-		resolve(SyncPermissionStatus.granted);
+		resolve(SyncPermissionState.granted);
 	    } else {
-		resolve(SyncPermissionStatus.denied);
+		resolve(SyncPermissionState.denied);
 	    }
-	};
+	}
 	exec(success, null, "BackgroundSync", "hasPermission", []);
     });
 };
 
 navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
-    serviceWorkerRegistration.syncManager = new SyncManager();
-    exec(syncCheck, scheduleForegroundSync, "BackgroundSync", "setupBackgroundSync", []);
+    serviceWorkerRegistration.sync = new SyncManager();
+    exec(null, null, "BackgroundSync", "setupBackgroundSync", []);
 });
  
 module.exports = SyncManager;

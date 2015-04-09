@@ -18,24 +18,12 @@
  */
 
 var exec = require('cordova/exec');
-var syncManager = require('./SyncManager');
+var serviceWorker = require('org.apache.cordova.serviceworker.ServiceWorker');
 
-SyncPermissionStatus = {
-    default: 0,
-    denied: 1,
-    granted: 2
-};
+function PeriodicSyncManager() {}
 
-SyncNetworkType = {
-    networkOffline: 0,
-    networkOnline: 1,
-    networkNonMobile: 2
-};
-
-Object.freeze(SyncPermissionStatus);
-Object.freeze(SyncNetworkType);
-
-module.exports = {
-    SyncPermissionStatus: SyncPermissionStatus,
-    SyncNetworkType: SyncNetworkType
-};
+navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
+    serviceWorkerRegistration.periodicSync = new PeriodicSyncManager();
+});
+ 
+module.exports = PeriodicSyncManager;

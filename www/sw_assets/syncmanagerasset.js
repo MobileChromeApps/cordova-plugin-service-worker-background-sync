@@ -17,7 +17,7 @@
  under the License.
  */
 
-SyncPermissionStatus = {
+SyncPermissionState = {
     default: 0,
     denied: 1,
     granted: 2
@@ -68,7 +68,6 @@ syncManager.register = function (syncRegistrationOptions) {
     return new Promise(function(resolve, reject) {
 	var options = CDVBackgroundSync_cloneOptions(syncRegistrationOptions);
 	var success = function () {
-	    CDVBackgroundSync_getBestForegroundSyncTime();
 	    resolve(options);
 	};
 	CDVBackgroundSync_register(options, success);
@@ -76,7 +75,7 @@ syncManager.register = function (syncRegistrationOptions) {
 };
 syncManager.getRegistrations = function () {
     return new Promise(function(resolve, reject) {
-	var success = function(regs) {
+	var callback = function(regs) {
 	    regs.forEach(function(reg) {
 		reg.unregister = function() {
 		    unregisterSync(reg.id);
@@ -84,7 +83,7 @@ syncManager.getRegistrations = function () {
 	    });
 	    resolve(regs);
 	};
-	CDVBackgroundSync_getRegistrations(success, reject);
+	CDVBackgroundSync_getRegistrations(callback);
     });
 };
 syncManager.getRegistration = function (id) {

@@ -17,20 +17,29 @@
  under the License.
  */
 
-var exec = require('cordova/exec');
-
-function SyncRegistration(options) {
-    options = options || {};
-    this.tag = options.tag || "";
-}
-
-SyncRegistration.prototype.unregister = function() {
-    return new Promise(function(resolve, reject) {
-	function success(didUnregister) {
-	    resolve(!!didUnregister);
-	}
-	exec(success, null, "BackgroundSync", "unregister", [this.tag]);
-    });
+SyncPermissionState = {
+    default: 0,
+    denied: 1,
+    granted: 2
 };
 
-module.exports = SyncRegistration;
+SyncNetworkState = {
+    any: 0,
+    avoid_cellular: 1,
+    online: 2
+};
+
+SyncPowerState = {
+    auto: 0,
+    avoid_draining: 1
+};
+
+Object.freeze(SyncPermissionState);
+Object.freeze(SyncNetworkState);
+Object.freeze(SyncPowerState);
+
+module.exports = {
+    SyncPermissionState: SyncPermissionState,
+    SyncNetworkState: SyncNetworkState,
+    SyncPowerState: SyncPowerState
+};

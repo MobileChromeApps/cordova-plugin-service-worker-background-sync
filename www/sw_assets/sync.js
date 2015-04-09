@@ -24,38 +24,63 @@ Object.defineProperty(this, 'onsync', {
     set: eventSetter('sync')
 });
 
+Object.defineProperty(this, 'onperiodicsync', {
+    configurable: false,
+    enumerable: true,
+    get: eventGetter('periodicsync'),
+    set: eventSetter('periodicsync')
+});
+
 function SyncRegistration() {}
 
 SyncRegistration.prototype.unregister = function() {
-    CDVBackgroundSync_unregisterSync(this.id);
+    CDVBackgroundSync_unregisterSync(this.tag);
 };
+
+function PeriodicSyncRegistration() {}
 
 function SyncEvent() {
     ExtendableEvent.call(this, 'sync');
     this.registration = new SyncRegistration();
 }
 
+function PeriodicSyncEvent() {
+    ExtendableEvent.call(this, 'periodicsync');
+    this.registration = new PeriodicSyncRegistration();
+}
+
 SyncEvent.prototype = Object.create(ExtendableEvent.prototype);
 SyncEvent.constructor = SyncEvent;
 
-FireSyncEvent = function(data) {
+PeriodicSyncEvent.prototype = Object.create(ExtendableEvent.prototype);
+PeriodicSyncEvent.constructor = PeriodicSyncEvent;
+
+function FireSyncEvent(data) {
     var ev = new SyncEvent();
-    ev.registration.id = data.id;
-    ev.registration.minDelay = data.minDelay;
-    ev.registration.maxDelay = data.maxDelay;
-    ev.registration.minPeriod = data.minPeriod;
-    ev.registration.minRequiredNetwork = data.minRequiredNetwork;
-    ev.registration.allowOnBattery = data.allowOnBattery;
-    ev.registration.idleRequired = data.idleRequired;
+    ev.registration.tag = data.tag;
     dispatchEvent(ev);
     if(Array.isArray(ev._promises)) {
-	return Promise.all(ev._promises).then(function(){
-		sendSyncResponse(0, data.id);
+	Promise.all(ev._promises).then(function(){
+		sendSyncResponse(0, data.tag);
 	    },function(){
-		sendSyncResponse(2, data.id);
+		sendSyncResponse(2, data.tag);
 	    });
     } else {
-	sendSyncResponse(1, data.id);
-	return Promise.resolve();
+	sendSyncResponse(1, data.tag);
     }
-};
+}
+
+function FirePeriodicSyncEvent(data) {
+    var ev = new PeriodicSyncEvent();
+    ev.registration.tag = data.tag;
+    dispatchEvent(ev);
+    if(Array.isArray(ev._promises)) {
+    Promise.all(ev._promises).then(function(){
+		sendPeriodicSyncResponse(0, data.tag);
+	    },function(){
+		sendPeriodicSyncResponse(2, data.tag);
+	    });
+    } else {
+	sendPeriodicSyncResponse(1, data.tag);
+    }
+}
