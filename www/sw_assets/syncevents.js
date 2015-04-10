@@ -34,7 +34,7 @@ Object.defineProperty(this, 'onperiodicsync', {
 function SyncRegistration() {}
 
 SyncRegistration.prototype.unregister = function() {
-    CDVBackgroundSync_unregisterSync(this.tag);
+    CDVBackgroundSync_unregisterSync(this.tag, "one-off");
 };
 
 function PeriodicSyncRegistration() {}
@@ -73,6 +73,9 @@ function FireSyncEvent(data) {
 function FirePeriodicSyncEvent(data) {
     var ev = new PeriodicSyncEvent();
     ev.registration.tag = data.tag;
+    ev.registration.minPeriod = data.minPeriod;
+    ev.registration.networkState = data.networkState;
+    ev.registration.powerState = data.powerState;
     dispatchEvent(ev);
     if(Array.isArray(ev._promises)) {
     Promise.all(ev._promises).then(function(){

@@ -67,10 +67,10 @@ if (typeof syncManager == 'undefined') {
 syncManager.register = function (syncRegistrationOptions) {
     return new Promise(function(resolve, reject) {
 	var options = CDVBackgroundSync_cloneOptions(syncRegistrationOptions);
-	var success = function () {
+	function callback() {
 	    resolve(options);
-	};
-	CDVBackgroundSync_register(options, success);
+	}
+	CDVBackgroundSync_register(options, "one-off", callback);
     });
 };
 syncManager.getRegistrations = function () {
@@ -78,22 +78,22 @@ syncManager.getRegistrations = function () {
 	var callback = function(regs) {
 	    regs.forEach(function(reg) {
 		reg.unregister = function() {
-		    unregisterSync(reg.id);
+		    CDVBackgroundSync_unregisterSync(reg.id, "one-off");
 		};
 	    });
 	    resolve(regs);
 	};
-	CDVBackgroundSync_getRegistrations(callback);
+	CDVBackgroundSync_getRegistrations("one-off", callback);
     });
 };
 syncManager.getRegistration = function (id) {
     return new Promise(function(resolve, reject) {
 	var success = function(reg) {
 	    reg.unregister = function() {
-		unregisterSync(reg.id);
+		CDVBackgroundSync_unregisterSync(reg.id, "one-off");
 	    };
 	    resolve(reg);
 	};
-	CDVBackgroundSync_getRegistration(id, success, reject);
+	CDVBackgroundSync_getRegistration(id, "one-off", success, reject);
     });
 };

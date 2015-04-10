@@ -22,6 +22,50 @@ var serviceWorker = require('org.apache.cordova.serviceworker.ServiceWorker');
 
 function PeriodicSyncManager() {}
 
+PeriodicSyncManager.prototype.register = function(syncRegistrationOptions) {
+    return new Promise(function(resolve,reject) {
+	function success() {
+	    resolve(new PeriodicSyncRegistration(syncRegistrationOptions));
+	}
+	// register does not dispatch an error
+	exec(success, null, "BackgroundSync", "cordovaRegister", [new PeriodicSyncRegistration(syncRegistrationOptions), "periodic"]);
+    });
+};
+
+PeriodicSyncManager.prototype.getRegistration = function(tag) {
+    return new Promise(function(resolve, reject) {
+	tag = tag || "";
+	function success(reg) {
+	    resolve(new PeriodicSyncRegistration(reg));
+	}
+	exec(success, reject, "BackgroundSync", "getRegistration", [tag, "periodic"]);
+    });
+};
+
+PeriodicSyncManager.prototype.getRegistrations = function() {
+    return new Promise(function(resolve, reject) {
+	function success(regs) {
+	    var newRegs = regs.map(function (reg) { return new PeriodicSyncRegistration(reg); });
+	    resolve(newRegs);
+	}
+	// getRegistrations does not fail, it returns an empty array when there are no registrations
+	exec(success, null, "BackgroundSync", "getRegistrations", ["periodic"]);
+    });
+};
+
+PeriodicSyncManager.prototype.permissionState = function() {
+    return new Promise(function(resolve, reject) {
+	function success(message) {
+	    if (message === "granted") {
+		resolve(SyncPermissionState.granted);
+	    } else {
+		resolve(SyncPermissionState.denied);
+	    }
+	}
+	exec(success, null, "BackgroundSync", "hasPermission", []);
+    });
+};
+
 navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
     serviceWorkerRegistration.periodicSync = new PeriodicSyncManager();
 });
