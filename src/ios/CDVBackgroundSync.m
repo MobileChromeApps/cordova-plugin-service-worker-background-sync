@@ -23,6 +23,7 @@
 #import <objc/runtime.h>
 #import "CDVServiceWorker.h"
 
+
 static NSString * REGISTRATION_LIST_STORAGE_KEY = @"CDVBackgroundSync_registrationList";
 static NSString * PERIODIC_REGISTRATION_LIST_STORAGE_KEY = @"CDVBackgroundSync_periodicRegistrationList";
 static const NSInteger MAX_BATCH_WAIT_TIME = 1000*60*30;
@@ -341,6 +342,9 @@ static CDVBackgroundSync *backgroundSync;
 
 - (void)fetchNewDataWithCompletionHandler:(Completion)handler
 {
+    // Force update reachability status because otherwise network status won't be updated when in background
+    CDVConnection *connection = [self.commandDelegate getCommandInstance:@"NetworkStatus"];
+    [connection performSelector:@selector(updateReachability:) withObject:connection.internetReach];
     // This should never happen, but just in case there are no registrations and a sync event is initiated
     if (![registrationList count] && ![periodicRegistrationList count]) {
         handler(UIBackgroundFetchResultNoData);
