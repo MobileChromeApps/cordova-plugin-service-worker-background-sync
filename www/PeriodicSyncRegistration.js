@@ -25,6 +25,7 @@ function PeriodicSyncRegistration(options) {
     this.minPeriod = options.minPeriod || 0;
     this.networkState = options.networkState || SyncNetworkState.online;
     this.powerState = options.powerState || SyncPowerState.auto;
+    this._timestamp = options._timestamp || Date.now();
 }
 
 PeriodicSyncRegistration.prototype.unregister = function() {

@@ -27,8 +27,8 @@ PeriodicSyncManager.prototype.register = function(syncRegistrationOptions) {
 	function success() {
 	    resolve(new PeriodicSyncRegistration(syncRegistrationOptions));
 	}
-	// register does not dispatch an error
-	exec(success, null, "BackgroundSync", "cordovaRegister", [new PeriodicSyncRegistration(syncRegistrationOptions), "periodic"]);
+	// register dispatches an error when minPeriod is less than minPossiblePeriod
+	exec(success, reject, "BackgroundSync", "cordovaRegister", [new PeriodicSyncRegistration(syncRegistrationOptions), "periodic"]);
     });
 };
 

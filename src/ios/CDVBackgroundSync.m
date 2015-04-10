@@ -116,6 +116,11 @@ static CDVBackgroundSync *backgroundSync;
 
 - (void)cordovaRegister:(CDVInvokedUrlCommand*)command
 {
+    if ([[command argumentAtIndex:1] isEqualToString:@"periodic"] && [[command argumentAtIndex:0][@"minPeriod"] integerValue] < minPossiblePeriod) {
+        CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Invalid minPeriod"];
+        [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+        return;
+    }
     NSMutableDictionary *list = [[command argumentAtIndex:1] isEqualToString:@"periodic"] ? periodicRegistrationList : registrationList;
     [self register:[command argumentAtIndex:0] inList:&list];
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
@@ -134,6 +139,10 @@ static CDVBackgroundSync *backgroundSync;
 
 - (void)register:(NSDictionary *)registration inList:(NSMutableDictionary**)list
 {
+    if(*list == registrationList && [self getNetworkStatus]){
+        [self fireSyncEventForRegistration:registration];
+        return;
+    }
     NSString *tag = registration[@"tag"];
     [CDVBackgroundSync validateTag:&tag];
     [self unregisterSyncByTag: tag fromRegistrationList:*list];
@@ -372,7 +381,7 @@ static CDVBackgroundSync *backgroundSync;
     } else {
         fetchResult = UIBackgroundFetchResultFailed;
     }
-    [self evaluatePeriodicSyncEvents];
+    [self evaluatePeriodicSyncRegistrations];
     
     // If there is no connection during a background fetch but there exist one off registrations
     if (![periodicRegistrationList count] && ![self getNetworkStatus]) {
@@ -391,18 +400,23 @@ static CDVBackgroundSync *backgroundSync;
     for (NSDictionary *registration in [registrationList allValues]) {
         //Increment the counter of dispatched syncs
         dispatchedSyncs++;
-        
-        // If we need all of the object properties
-        NSError *error;
-        NSData *json = [NSJSONSerialization dataWithJSONObject:registration options:0 error:&error];
-        NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(%@);", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
-        [serviceWorker.context performSelectorOnMainThread:@selector(evaluateScript:) withObject:dispatchCode waitUntilDone:NO];
+        [self fireSyncEventForRegistration:registration];
     }
 }
 
-- (void)evaluatePeriodicSyncEvents
+- (void)fireSyncEventForRegistration:(NSDictionary*)registration
 {
-    
+    NSError *error;
+    NSData *json = [NSJSONSerialization dataWithJSONObject:registration options:0 error:&error];
+    NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(%@);", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
+    [serviceWorker.context performSelectorOnMainThread:@selector(evaluateScript:) withObject:dispatchCode waitUntilDone:NO];
+}
+
+- (void)evaluatePeriodicSyncRegistrations
+{
+    for (NSDictionary *registration in periodicRegistrationList) {
+        
+    }
 }
 
 - (void)dispatchPeriodicSyncEvent:(NSDictionary *)registration
@@ -458,6 +472,11 @@ static CDVBackgroundSync *backgroundSync;
     }
 }
 
+- (void)computeBestSyncTime
+{
+    
+}
+
 - (void)computeBestForegroundSyncTime:(CDVInvokedUrlCommand*)command
 {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void){
@@ -507,9 +526,9 @@ static CDVBackgroundSync *backgroundSync;
                 minDelay = [registration[@"minDelay"] integerValue];
                 if ((!haveMax || (time + minDelay < latestTime)) && ((time + minDelay) > bestTime)) {
                     //Ensure no super long wait due to outliers by only including times within the threshold from the current minimum
-                    if ((time + minDelay - min) <= MAX_BATCH_WAIT_TIME) {
-                            bestTime = time + minDelay;
-                    }
+                    //if ((time + minDelay - min) <= MAX_BATCH_WAIT_TIME) {
+                    //        bestTime = time + minDelay;
+                    //}
                 }
             }
         }
