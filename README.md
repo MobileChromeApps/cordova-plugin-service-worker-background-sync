@@ -25,11 +25,11 @@ navigator.serviceWorker.ready.then(function (serviceWorkerRegistration) {
 ###Checking Permission
 In the iOS implementation of background sync, permission defaults to granted. However, the user can disable background refresh capabilities manually. If permission is denied, sync events can still be executed in the foreground, but no sync events will be executed while the app is idle or in the background.
 ```javascript
-serviceWorkerRegistration.syncManager.hasPermission().then(function(permissionStatus) {
-    if (permissionStatus == SyncPermissionStatus.granted) {
+serviceWorkerRegistration.syncManager.permissionState().then(function(permissionState) {
+    if (permissionState == SyncPermissionState.granted) {
         // We have permission to use background sync!
     }
-    if (permissionStatus == SyncPermissionStatus.denied) {
+    if (permissionState == SyncPermissionState.denied) {
         // We don't have permission to use background sync,
         // You can try and prompt the user to turn iOS's background referesh back on
     }
@@ -37,16 +37,12 @@ serviceWorkerRegistration.syncManager.hasPermission().then(function(permissionSt
 ```
 ###Registering Sync Events
 You can register sync events from both the page and the service worker context. Check out [this explainer](https://github.com/slightlyoff/BackgroundSync/blob/master/explainer.md) for details about the registration options.
+
+####For One-off Sync Events
 ```javascript
-serviceWorkerRegistration.syncManager.register(
+serviceWorkerRegistration.sync.register(
 {
-    id: "exampleSync",                                   // default: empty string
-    minDelay: 60 * 60 * 1000,                             // default: 0
-    maxDelay: 0,                                          // default: 0
-    minPeriod: 12 * 60 * 60 * 1000,                       // default: 0
-    minRequiredNetwork: SyncNetworkType.networkNonMobile, // default: "network-online"
-    allowOnBattery: true,                                 // default: true
-    idleRequired: false                                   // default: false
+    tag: "exampleSync"  // A name used for retrieving or updating sync events, default: empty string
 }).then(function() { // Success
      // A sync event was successfully registered
 },
@@ -54,10 +50,36 @@ function() { // Failure
      // There was a problem while registering a sync event
 });
 ```
+####For Periodic Sync Events
+```javascript
+serviceWorkerRegistration.periodicSync.register(
+{
+    tag: "examplePeriodicSync",     // A name used for retrieving or updating sync events, default: empty string
+    minPeriod: 50000,               // Delay between sync events repetition
+    networkState: "avoid-cellular", // The minimum required network type for your sync event
+    powerState: "avoid-draining"    // Whether or not to fire sync events while on battery
+}).then(function() { // Success
+     // A sync event was successfully registered
+},
+function() { // Failure
+     // There was a problem while registering a sync event
+});
+```
+
 ###Looking Up Sync Event Registrations
 ```javascript
 // Get all sync event registrations
-serviceWorkerRegistration.syncManager.getRegistrations().then(function(regs){
+serviceWorkerRegistration.sync.getRegistrations().then(function(regs){
+    regs.forEach(function(reg) {
+        // Do something with the registrations
+        ...
+  
+        // You can also unregister sync events
+        reg.unregister();
+    });
+});
+
+serviceWorkerRegistration.periodicSync.getRegistrations().then(function(regs){
     regs.forEach(function(reg) {
         // Do something with the registrations
         ...
@@ -68,8 +90,17 @@ serviceWorkerRegistration.syncManager.getRegistrations().then(function(regs){
 });
 ```
 ```javascript
-// Get a specific sync event registration by Id
-serviceWorkerRegistration.syncManager.getRegistration("exampleSync").then(function(reg) {
+// Get a specific sync event registration by its Tag
+serviceWorkerRegistration.sync.getRegistration("exampleSync").then(function(reg) {
+    // Do something with the registration
+    console.log(reg.minDelay);
+},
+function(err) {
+    // This id hasn't been registered
+    console.log(err);
+});
+
+serviceWorkerRegistration.periodicSync.getRegistration("examplePeriodicSync").then(function(reg) {
     // Do something with the registration
     console.log(reg.minDelay);
 },
@@ -79,7 +110,8 @@ function(err) {
 });
 ```
 ###Handling Sync Events
-All sync events will be dispatched to the same ```onsync``` event handler in your service worker script. The event handler is passed an event object which has a registration property that contains all of the registration options of the sync registration that triggered this event.
+All sync events will be dispatched to the same ```onsync``` event handler in your service worker script. All periodic sync events will be dispatched to the same ```onperiodicsync``` event handler. These event handlers are passed an event object which has a registration property that contains all of the registration options of the sync registration that triggered this event.
+#### One-off Sync Event
 ```javascript
 this.onsync = function(event) {
     if (event.registration.id === "exampleSync") {
@@ -89,6 +121,26 @@ this.onsync = function(event) {
                 resolve();
             }
             someAsyncFunction(event.registration.id, asyncCallback);
+            // One-off sync events are automatically unregistered after completion
+        }));
+    }
+};
+```
+#### Periodic Sync Event
+```javascript
+this.onperiodicsync = function(event) {
+    if (event.registration.id === "examplePeriodicSync") {
+        event.waitUntil(new Promise(function(resolve, reject) {
+            var asyncCallback = function () {
+                // This is asynchronous
+                resolve();
+            }
+            someAsyncFunction(event.registration.id, asyncCallback);
+            if (somethingHappened()) {
+                // You can unregister a periodic sync from within its event handler
+                // Otherwise, the sync event will be rescheduled after completion
+                event.registration.unregister();
+            }
         }));
     }
 };
