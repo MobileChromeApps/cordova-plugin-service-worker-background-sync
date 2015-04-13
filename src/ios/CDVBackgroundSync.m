@@ -24,6 +24,8 @@
 #import "CDVServiceWorker.h"
 
 static NSString * const MIN_POSSIBLE_PERIOD = @"minperiod";
+static NSString * const PUSHBACK = @"syncpushback";
+static NSString * const MAX_WAIT_TIME = @"syncmaxwaittime";
 static NSString * const REGISTRATION_LIST_STORAGE_KEY = @"CDVBackgroundSync_registrationList";
 static NSString * const PERIODIC_REGISTRATION_LIST_STORAGE_KEY = @"CDVBackgroundSync_periodicRegistrationList";
 
@@ -33,6 +35,8 @@ static NSInteger dispatchedSyncs = 0;
 static NSInteger completedSyncs = 0;
 
 static NSInteger minPossiblePeriod;
+static NSInteger pushback; // Pushback set for 10 minutes
+static NSInteger maxWaitTime;
 
 @interface CDVBackgroundSync : CDVPlugin {}
 
@@ -61,6 +65,7 @@ static CDVBackgroundSync *backgroundSync;
     registrationList = [[defaults objectForKey:REGISTRATION_LIST_STORAGE_KEY] mutableCopy];
     periodicRegistrationList = [[defaults objectForKey:PERIODIC_REGISTRATION_LIST_STORAGE_KEY] mutableCopy];
     if (([periodicRegistrationList count] + [registrationList count]) != 0) {
+        [self scheduleSync];
         [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalMinimum];
     }
 }
@@ -70,6 +75,7 @@ static CDVBackgroundSync *backgroundSync;
     [self restoreRegistrations];
     self.serviceWorker = [self.commandDelegate getCommandInstance:@"ServiceWorker"];
     [self setupSyncResponse];
+    [self setupPeriodicSyncResponse];
     [self setupUnregister];
     [self setupBackgroundFetchHandler];
     [self setupServiceWorkerRegister];
@@ -78,8 +84,14 @@ static CDVBackgroundSync *backgroundSync;
     //Get Min Possible Period setting
     minPossiblePeriod = [[[self commandDelegate] settings][MIN_POSSIBLE_PERIOD] integerValue];
     minPossiblePeriod = minPossiblePeriod > 1000 ? minPossiblePeriod : 1000*60*60; // If no minPossible period is given, set the default to one hour
+    pushback = [[[self commandDelegate] settings][PUSHBACK] integerValue];
+    pushback = pushback > 1000 ? pushback : 1000*60*5;
+    maxWaitTime = [[[self commandDelegate] settings][MAX_WAIT_TIME] integerValue];
+    maxWaitTime = maxWaitTime > 1000 ? maxWaitTime : 2*3600000;
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(networkCheckCallback) name:kReachabilityChangedNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(batteryStateCallback) name:UIDeviceBatteryStateDidChangeNotification object:nil];
+    [[UIDevice currentDevice] setBatteryMonitoringEnabled:YES];
 }
 
 - (void)setupBackgroundFetchHandler
@@ -139,7 +151,7 @@ static CDVBackgroundSync *backgroundSync;
 
 - (void)register:(NSDictionary *)registration inList:(NSMutableDictionary**)list
 {
-    if(*list == registrationList && [self getNetworkStatus]){
+    if (*list == registrationList && [self getNetworkStatus]) {
         [self fireSyncEventForRegistration:registration];
         return;
     }
@@ -157,6 +169,9 @@ static CDVBackgroundSync *backgroundSync;
     NSString *storageKey = *list == registrationList ? REGISTRATION_LIST_STORAGE_KEY : PERIODIC_REGISTRATION_LIST_STORAGE_KEY;
     [defaults setObject:*list forKey:storageKey];
     [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalMinimum];
+    if (*list == periodicRegistrationList) {
+        [self scheduleSync];
+    }
 }
 
 - (void)getRegistrations:(CDVInvokedUrlCommand*)command
@@ -309,7 +324,7 @@ static CDVBackgroundSync *backgroundSync;
     __weak CDVBackgroundSync* weakSelf = self;
     
     //Indicate to OS success or failure and unregister syncs that have been successfully executed and are not periodic
-    serviceWorker.context[@"sendSyncResponse"] = ^(JSValue *responseType, JSValue *jsTag) {
+    serviceWorker.context[@"sendPeriodicSyncResponse"] = ^(JSValue *responseType, JSValue *jsTag) {
         NSString *tag = [jsTag toString];
         [CDVBackgroundSync validateTag:&tag];
         completedSyncs++;
@@ -319,24 +334,20 @@ static CDVBackgroundSync *backgroundSync;
                 if (fetchResult != UIBackgroundFetchResultFailed) {
                     fetchResult = UIBackgroundFetchResultNewData;
                 }
-                //TODO: reschedule
+                //Reschedule the sync by retimestamping
+                weakSelf.periodicRegistrationList[tag][@"_timestamp"] = @([NSDate date].timeIntervalSince1970 * 1000);
                 break;
             case 2:
                 NSLog(@"Failed to get data");
                 fetchResult = UIBackgroundFetchResultFailed;
             default:
-                // TODO: Pushback
+                // Pushback failed sync by retimestamping with not current time, but with original timestamp + pushback time
+                weakSelf.periodicRegistrationList[tag][@"_timestamp"] = @([weakSelf.periodicRegistrationList[tag][@"_timestamp"] integerValue] + pushback);
                 break;
         }
         
         // Make sure we received all the syncs before determining completion
         if (completedSyncs == dispatchedSyncs) {
-            if (weakSelf.completionHandler != nil) {
-                NSLog(@"Executing Completion Handler");
-                weakSelf.completionHandler(fetchResult);
-                weakSelf.completionHandler = nil;
-            }
-            
             // Reset the sync count
             completedSyncs = 0;
             dispatchedSyncs = 0;
@@ -345,6 +356,12 @@ static CDVBackgroundSync *backgroundSync;
             //If we have no more registrations left, turn off background fetch
             if ([weakSelf.registrationList count] == 0) {
                 [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalNever];
+            }
+            [weakSelf scheduleSync];
+            if (weakSelf.completionHandler != nil) {
+                NSLog(@"Executing Completion Handler");
+                weakSelf.completionHandler(fetchResult);
+                weakSelf.completionHandler = nil;
             }
         }
     };
@@ -363,19 +380,20 @@ static CDVBackgroundSync *backgroundSync;
     }
 }
 
-- (void)fetchNewDataWithCompletionHandler:(Completion)handler
+- (void)evaluateSyncs
 {
     // Force update reachability status because otherwise network status won't be updated when in background
     CDVConnection *connection = [self.commandDelegate getCommandInstance:@"NetworkStatus"];
     [connection performSelector:@selector(updateReachability:) withObject:connection.internetReach];    // Very much declared in CDVConnection
     // This should never happen, but just in case there are no registrations and a sync event is initiated
     if (![registrationList count] && ![periodicRegistrationList count]) {
-        handler(UIBackgroundFetchResultNoData);
+        if (completionHandler) {
+            self.completionHandler(UIBackgroundFetchResultNoData);
+        }
         return;
     }
     
     NSLog(@"Fetching");
-    self.completionHandler = handler;
     if ([self getNetworkStatus]) {
         [self dispatchSyncEvents];
     } else {
@@ -392,7 +410,8 @@ static CDVBackgroundSync *backgroundSync;
 }
 
 - (void)application:(UIApplication*)application performFetchWithCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler{
-    [backgroundSync fetchNewDataWithCompletionHandler:completionHandler];
+    self.completionHandler = completionHandler;
+    [backgroundSync evaluateSyncs];
 }
 
 - (void)dispatchSyncEvents
@@ -414,8 +433,17 @@ static CDVBackgroundSync *backgroundSync;
 
 - (void)evaluatePeriodicSyncRegistrations
 {
-    for (NSDictionary *registration in periodicRegistrationList) {
-        
+    for (NSDictionary *registration in [periodicRegistrationList allValues]) {
+        if ([registration[@"_timestamp"] integerValue] + [registration[@"minPeriod"] integerValue] > [NSDate date].timeIntervalSince1970 * 1000) {
+            continue;
+        }
+        if ([registration[@"networkState"] integerValue] > [self getNetworkStatus]) {
+            continue;
+        }
+        if ([registration[@"powerState"] integerValue] && ![self isCharging]) {
+            continue;
+        }
+        [self dispatchPeriodicSyncEvent:registration];
     }
 }
 
@@ -429,15 +457,6 @@ static CDVBackgroundSync *backgroundSync;
     NSData *json = [NSJSONSerialization dataWithJSONObject:registration options:0 error:&error];
     NSString *dispatchCode = [NSString stringWithFormat:@"FirePeriodicSyncEvent(%@);", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
     [serviceWorker.context performSelectorOnMainThread:@selector(evaluateScript:) withObject:dispatchCode waitUntilDone:NO];
-}
-
-- (void)getNetworkAndBatteryStatus:(CDVInvokedUrlCommand*)command
-{
-    NSInteger networkStatus = [self getNetworkStatus];
-    BOOL isCharging = [self isCharging];
-    NSArray *toReturn = @[@(networkStatus),@(isCharging)];
-    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:toReturn];
-    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
 - (NSInteger)getNetworkStatus
@@ -455,10 +474,16 @@ static CDVBackgroundSync *backgroundSync;
 
 - (BOOL)isCharging
 {
-    [[UIDevice currentDevice] setBatteryMonitoringEnabled:YES];
-    BOOL toReturn = [[UIDevice currentDevice] batteryState] == UIDeviceBatteryStateCharging;
-    [[UIDevice currentDevice] setBatteryMonitoringEnabled:NO];
-    return toReturn;
+    return [[UIDevice currentDevice] batteryState] == UIDeviceBatteryStateCharging;
+}
+
+- (void)batteryStateCallback
+{
+    if ([[UIDevice currentDevice] batteryState] == UIDeviceBatteryStateCharging) {
+        // Device has been plugged in
+    } else {
+        // Device has been unplugged
+    }
 }
 
 - (void)hasPermission:(CDVInvokedUrlCommand*)command
@@ -472,81 +497,40 @@ static CDVBackgroundSync *backgroundSync;
     }
 }
 
-- (void)computeBestSyncTime
+- (void)foregroundSync
 {
-    
+    // Prevent duplicate "evaluateSyncs" calls that might happen during background fetch event
+    if (!completionHandler) {
+        [self evaluateSyncs];
+    }
 }
 
-- (void)computeBestForegroundSyncTime:(CDVInvokedUrlCommand*)command
+- (void)scheduleSync
 {
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(void){
-        NSArray* registrations = [registrationList allValues];
-        NSInteger latestTime = 0;
-        NSInteger bestTime = 0;
-        NSInteger time = 0;
-        NSInteger maxDelay = 0;
-        NSInteger minDelay = 0;
-        NSInteger min = 0;
-        NSDictionary *registration;
-        BOOL haveMax = NO;
-        if (registrations.count == 0) {
-            NSLog(@"No Registrations to Schedule");
-            if (command != nil) {
-                CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No Registrations to Schedule"];
-                [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-            }
-            return;
+    if (!periodicRegistrationList || [periodicRegistrationList count] == 0) {
+        return;
+    }
+    NSInteger delay = 0;
+    NSInteger min = 0;
+    for (NSDictionary *registration in [periodicRegistrationList allValues]) {
+        NSInteger possibleMin = [registration[@"_timestamp"] integerValue] + [registration[@"minPeriod"] integerValue];
+        if (!min || possibleMin < min) {
+            min = possibleMin;
         }
-        // Get the latest time without having a sync registration expire , also get minimum registration dispatch time
-        for (registration in registrations) {
-            NSInteger minRequiredNetwork = [registration[@"minRequiredNetwork"] integerValue];
-            NSInteger allowOnBattery = [registration[@"allowOnBattery"] integerValue];
-            NSInteger idleRequired = [registration[@"idleRequired"] integerValue];
-            if ([self getNetworkStatus] >= minRequiredNetwork && (allowOnBattery || [self isCharging]) && !idleRequired) {
-                time = [registration[@"time"] integerValue];
-                maxDelay = [registration[@"maxDelay"] integerValue];
-                minDelay = [registration[@"minDelay"] integerValue];
-                if ((((time + maxDelay) < latestTime) || !latestTime) && maxDelay) {
-                    haveMax = YES;
-                    latestTime = time + maxDelay;
-                }
-                if (!min || ((time + minDelay) < min)) {
-                    min = time + minDelay;
-                }
-            }
+    }
+    NSInteger bestTime = 0;
+    for (NSDictionary *registration in [periodicRegistrationList allValues]) {
+        NSInteger possibleBestTime = [registration[@"_timestamp"] integerValue] + [registration[@"minPeriod"] integerValue];
+        if (possibleBestTime < min + maxWaitTime && possibleBestTime > bestTime) {
+            bestTime = possibleBestTime;
         }
-        
-        // Find the time at which we have met the maximum min delays without exceding latestTime
-        for (registration in registrations) {
-            NSInteger minRequiredNetwork = [registration[@"minRequiredNetwork"] integerValue];
-            NSInteger allowOnBattery = [registration[@"allowOnBattery"] integerValue];
-            NSInteger idleRequired = [registration[@"idleRequired"] integerValue];
-            if ([self getNetworkStatus] >= minRequiredNetwork && (allowOnBattery || [self isCharging]) && !idleRequired) {
-                time = [registration[@"time"] integerValue];
-                minDelay = [registration[@"minDelay"] integerValue];
-                if ((!haveMax || (time + minDelay < latestTime)) && ((time + minDelay) > bestTime)) {
-                    //Ensure no super long wait due to outliers by only including times within the threshold from the current minimum
-                    //if ((time + minDelay - min) <= MAX_BATCH_WAIT_TIME) {
-                    //        bestTime = time + minDelay;
-                    //}
-                }
-            }
-        }
-        if (!bestTime) {
-            CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No viable registration to schedule"];
-            [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-        } else {
-            // Command is nil when getBestForegroundSyncTime is called from native after all dispatched sync events have been resolved
-            if (command == nil) {
-                CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDouble:bestTime];
-                [result setKeepCallback:@(YES)];
-                [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
-            } else {
-                CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDouble:bestTime];
-                [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
-            }
-        }
-    });
+    }
+    if (bestTime) {
+        delay = bestTime/1000 - [NSDate date].timeIntervalSince1970 + 1;
+    }
+    NSLog(@"Delay: %zd", delay);
+    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(evaluateSyncs) object:nil];
+    [self performSelector:@selector(foregroundSync) withObject:nil afterDelay:delay];
 }
 @end
 

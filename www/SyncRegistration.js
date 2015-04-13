@@ -25,11 +25,12 @@ function SyncRegistration(options) {
 }
 
 SyncRegistration.prototype.unregister = function() {
+    var tag = this.tag;
     return new Promise(function(resolve, reject) {
 	function success(didUnregister) {
 	    resolve(!!didUnregister);
 	}
-	exec(success, null, "BackgroundSync", "unregister", [this.tag]);
+	exec(success, null, "BackgroundSync", "unregister", [tag]);
     });
 };
 
