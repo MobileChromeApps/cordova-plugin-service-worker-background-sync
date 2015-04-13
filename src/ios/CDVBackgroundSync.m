@@ -65,9 +65,9 @@ static CDVBackgroundSync *backgroundSync;
     registrationList = [[defaults objectForKey:REGISTRATION_LIST_STORAGE_KEY] mutableCopy];
     periodicRegistrationList = [[defaults objectForKey:PERIODIC_REGISTRATION_LIST_STORAGE_KEY] mutableCopy];
     if (([periodicRegistrationList count] + [registrationList count]) != 0) {
-        [self scheduleSync];
         [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalMinimum];
     }
+    [self scheduleSync];
 }
 
 - (void)pluginInitialize

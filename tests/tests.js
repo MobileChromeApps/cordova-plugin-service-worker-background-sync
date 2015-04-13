@@ -293,7 +293,7 @@
 	});
 	it("getRegistration resolves correct single registration", function (done) {
 	    swreg.periodicSync.register({tag:"1", minPeriod: 10000000}).then(function () {
-		swreg.periodicSync.register({tag:"2", minPeriod:100000000, networkState:0, powerState:1}).then(function () {
+		swreg.periodicSync.register({tag:"2", minPeriod:100000000, networkState:"any", powerState:"avoid-draining"}).then(function () {
 		    swreg.periodicSync.register({tag:"3", minPeriod: 10000000}).then(function () {
 			swreg.periodicSync.getRegistrations().then(function (regs) {
 			    expect(regs.length).toEqual(3);

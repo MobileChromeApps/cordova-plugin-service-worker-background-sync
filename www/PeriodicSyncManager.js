@@ -25,8 +25,24 @@ function PeriodicSyncManager() {
     exec(function(data) { that.minPossiblePeriod = data; }, null, "BackgroundSync", "getMinPossiblePeriod", []);
 }
 
+function strToEnum(str) {
+    if (str === "any" || str === "auto" || str === "default") {
+	return 0;
+    }
+    if (str === "denied" || str === "avoid-cellular" || str === "avoid-draining") {
+	return 1;
+    }
+    if (str === "granted" || str === "online") {
+	return 2;
+    }
+    return str;
+}
+
 PeriodicSyncManager.prototype.register = function(syncRegistrationOptions) {
     return new Promise(function(resolve,reject) {
+	syncRegistrationOptions = syncRegistrationOptions || {};
+	syncRegistrationOptions.networkState = strToEnum(syncRegistrationOptions.networkState);
+	syncRegistrationOptions.powerState = strToEnum(syncRegistrationOptions.powerState);
 	function success() {
 	    resolve(new PeriodicSyncRegistration(syncRegistrationOptions));
 	}
