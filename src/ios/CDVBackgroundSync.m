@@ -126,6 +126,12 @@ static CDVBackgroundSync *backgroundSync;
     }
 }
 
+- (void)getMinPossiblePeriod:(CDVInvokedUrlCommand*)command
+{
+    CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDouble:minPossiblePeriod];
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+}
+
 - (void)cordovaRegister:(CDVInvokedUrlCommand*)command
 {
     if ([[command argumentAtIndex:1] isEqualToString:@"periodic"] && [[command argumentAtIndex:0][@"minPeriod"] integerValue] < minPossiblePeriod) {
@@ -296,14 +302,7 @@ static CDVBackgroundSync *backgroundSync;
                 //TODO: Create Pushback
                 break;
         }
-        
         if (completedSyncs == dispatchedSyncs) {
-            if (weakSelf.completionHandler != nil) {
-                NSLog(@"Executing Completion Handler");
-                weakSelf.completionHandler(fetchResult);
-                weakSelf.completionHandler = nil;
-            }
-            
             // Reset the sync count
             completedSyncs = 0;
             dispatchedSyncs = 0;
@@ -312,6 +311,11 @@ static CDVBackgroundSync *backgroundSync;
             //If we have no more registrations left, turn off background fetch
             if ([weakSelf.registrationList count] == 0) {
                 [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalNever];
+            }
+            if (weakSelf.completionHandler != nil) {
+                NSLog(@"Executing Completion Handler");
+                weakSelf.completionHandler(fetchResult);
+                weakSelf.completionHandler = nil;
             }
         }
 
@@ -328,7 +332,6 @@ static CDVBackgroundSync *backgroundSync;
         NSString *tag = [jsTag toString];
         [CDVBackgroundSync validateTag:&tag];
         completedSyncs++;
-        
         switch ([responseType toInt32]) {
             case 0:
                 if (fetchResult != UIBackgroundFetchResultFailed) {
@@ -346,11 +349,15 @@ static CDVBackgroundSync *backgroundSync;
                 break;
         }
         
+        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+        [defaults setObject:weakSelf.periodicRegistrationList forKey:PERIODIC_REGISTRATION_LIST_STORAGE_KEY];
+
         // Make sure we received all the syncs before determining completion
         if (completedSyncs == dispatchedSyncs) {
             // Reset the sync count
             completedSyncs = 0;
             dispatchedSyncs = 0;
+
             fetchResult = UIBackgroundFetchResultNoData;
             
             //If we have no more registrations left, turn off background fetch
@@ -358,6 +365,7 @@ static CDVBackgroundSync *backgroundSync;
                 [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalNever];
             }
             [weakSelf scheduleSync];
+            NSLog(@"Rescheduling %@", tag);
             if (weakSelf.completionHandler != nil) {
                 NSLog(@"Executing Completion Handler");
                 weakSelf.completionHandler(fetchResult);
@@ -418,13 +426,13 @@ static CDVBackgroundSync *backgroundSync;
 {
     for (NSDictionary *registration in [registrationList allValues]) {
         //Increment the counter of dispatched syncs
-        dispatchedSyncs++;
         [self fireSyncEventForRegistration:registration];
     }
 }
 
 - (void)fireSyncEventForRegistration:(NSDictionary*)registration
 {
+    dispatchedSyncs++;
     NSError *error;
     NSData *json = [NSJSONSerialization dataWithJSONObject:registration options:0 error:&error];
     NSString *dispatchCode = [NSString stringWithFormat:@"FireSyncEvent(%@);", [[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding]];
@@ -510,26 +518,26 @@ static CDVBackgroundSync *backgroundSync;
     if (!periodicRegistrationList || [periodicRegistrationList count] == 0) {
         return;
     }
-    NSInteger delay = 0;
-    NSInteger min = 0;
+    double delay = 0;
+    double min = 0;
     for (NSDictionary *registration in [periodicRegistrationList allValues]) {
-        NSInteger possibleMin = [registration[@"_timestamp"] integerValue] + [registration[@"minPeriod"] integerValue];
+        double possibleMin = [registration[@"_timestamp"] doubleValue] + [registration[@"minPeriod"] doubleValue];
         if (!min || possibleMin < min) {
             min = possibleMin;
         }
     }
-    NSInteger bestTime = 0;
+    double bestTime = 0;
     for (NSDictionary *registration in [periodicRegistrationList allValues]) {
-        NSInteger possibleBestTime = [registration[@"_timestamp"] integerValue] + [registration[@"minPeriod"] integerValue];
+        double possibleBestTime = [registration[@"_timestamp"] doubleValue] + [registration[@"minPeriod"] doubleValue];
         if (possibleBestTime < min + maxWaitTime && possibleBestTime > bestTime) {
             bestTime = possibleBestTime;
         }
     }
     if (bestTime) {
-        delay = bestTime/1000 - [NSDate date].timeIntervalSince1970 + 1;
+        delay = ceil(bestTime/1000.0 - [NSDate date].timeIntervalSince1970);
     }
-    NSLog(@"Delay: %zd", delay);
-    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(evaluateSyncs) object:nil];
+    NSLog(@"Delay: %@", @(delay));
+    [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(foregroundSync) object:nil];
     [self performSelector:@selector(foregroundSync) withObject:nil afterDelay:delay];
 }
 @end

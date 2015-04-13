@@ -23,7 +23,10 @@ function PeriodicSyncRegistration(options) {
     options = options || {};
     this.tag = options.tag || "";
     this.minPeriod = options.minPeriod || 0;
-    this.networkState = options.networkState || SyncNetworkState.online;
+    this.networkState = SyncNetworkState.online;
+    if (typeof options.networkState != 'undefined') { //This is necessary since the default is nonzero - would overwrite custom 0 value with ||
+	this.networkState = options.networkState;
+    }
     this.powerState = options.powerState || SyncPowerState.auto;
     this._timestamp = options._timestamp || Date.now();
 }

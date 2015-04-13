@@ -20,7 +20,10 @@
 var exec = require('cordova/exec');
 var serviceWorker = require('org.apache.cordova.serviceworker.ServiceWorker');
 
-function PeriodicSyncManager() {}
+function PeriodicSyncManager() {
+    var that = this;
+    exec(function(data) { that.minPossiblePeriod = data; }, null, "BackgroundSync", "getMinPossiblePeriod", []);
+}
 
 PeriodicSyncManager.prototype.register = function(syncRegistrationOptions) {
     return new Promise(function(resolve,reject) {
@@ -44,25 +47,25 @@ PeriodicSyncManager.prototype.getRegistration = function(tag) {
 
 PeriodicSyncManager.prototype.getRegistrations = function() {
     return new Promise(function(resolve, reject) {
-	function success(regs) {
+	function callback(regs) {
 	    var newRegs = regs.map(function (reg) { return new PeriodicSyncRegistration(reg); });
 	    resolve(newRegs);
 	}
 	// getRegistrations does not fail, it returns an empty array when there are no registrations
-	exec(success, null, "BackgroundSync", "getRegistrations", ["periodic"]);
+	exec(callback, null, "BackgroundSync", "getRegistrations", ["periodic"]);
     });
 };
 
 PeriodicSyncManager.prototype.permissionState = function() {
     return new Promise(function(resolve, reject) {
-	function success(message) {
+	function callback(message) {
 	    if (message === "granted") {
 		resolve(SyncPermissionState.granted);
 	    } else {
 		resolve(SyncPermissionState.denied);
 	    }
 	}
-	exec(success, null, "BackgroundSync", "hasPermission", []);
+	exec(callback, null, "BackgroundSync", "hasPermission", []);
     });
 };
 
