@@ -36,75 +36,46 @@
 		    <p class="event received">Device is Ready</p>
 		</div>
 	    </div>
-	    <div id="mainPage" class="page center">
-		<h2>No Network Requirement</h2>
-		<div id="buttons-no-network" class="button-container">
-		    <button id="min10max000" class="btn">Min10Max0</button>
-		    <button id="min15max000" class="btn">Min15Max0</button>
-		    <button id="min10max150" class="btn">Min10Max15</button>
-		    <button id="min15max200" class="btn">Min15Max20</button>
-		    <button id="min45minutes0" class="btn">Min45Minutes</button>
+	    <div id="mainPage">
+		<h2>One Off Sync Events</h2>
+		<div>
+		    <label>Tag</label>
+		    <input id="OOTagInput" type="text" />
+		    <button id="OOBtn">Register</button>
 		</div>
-		<h2>Any Internet Connection</h2>
-		<div id="buttons-min-network" class="button-container">
-		    <button id="min10max001" class="btn">Min10Max0</button>
-		    <button id="min15max001" class="btn">Min15Max0</button>
-		    <button id="min10max151" class="btn">Min10Max15</button>
-		    <button id="min15max201" class="btn">Min15Max20</button>
-		    <button id="min45minutes1" class="btn">Min45Minutes</button>
-		</div>
-		<h2>Wifi Only</h2>
-		<div id="buttons-min-wifi" class="button-container">
-		    <button id="min10max002" class="btn">Min10Max0</button>
-		    <button id="min15max002" class="btn">Min15Max0</button>
-		    <button id="min10max152" class="btn">Min10Max15</button>
-		    <button id="min15max202" class="btn">Min15Max20</button>
-		    <button id="min45minutes2" class="btn">Min45Minutes</button>
-		</div>
-		<h2>Other</h2>
-		<div id="buttons-other" class="button-container">
-		    <button id="syncOnCharging" class="otherBtn">Sync When Charging</button>
-		    <button id="syncOnIdle" class="otherBtn">Sync When Idle</button>
-		    <button id="customSync" class="otherBtn">Custom Sync</button>
+		<h2>Periodic Sync Events</h2>
+		<div class="PSync">
+		    <div class="PSyncInner">
+			<div>
+			    <label>Tag:</label>
+			    <input id="PTagInput" type="text" />
+			</div>
+			<div>
+			    <label>Min Period</label>
+			    <input id="minPeriod" type="number" value=2000 />
+			</div>
+			<div>
+			    <label>Min Required Network</label>
+			    <select id="networkState">
+				<option value="0">Any</option>
+				<option value="1">Avoid Cellular</option>
+				<option value="2" selected="selected">Online</option>
+			    </select>
+			</div>
+			<div>
+			    <label>Avoid Draining</label>
+			    <input type="checkbox" id="powerState"/>
+			</div>
+			<div class="PBtnDiv">
+			    <button id="PBtn">Register</button>
+			    <button id="PUnregisterAll">Unregister All</button>
+			</div>
+		    </div>
 		</div>
 	    </div>
-	    <div id="customSyncPage" class="page right">
-		<div>
-		    <label>Name</label>
-		    <input id="idInput" type="text" />
-		</div>
-		<div>
-		    <label>Min Delay</label>
-		    <input id="minDelayInput" type="number" value=0 />
-		</div>
-		<div>
-		    <label>Max Delay</label>
-		    <input id="maxDelayInput" type="number" value=0 />
-		</div>
-		<div>
-		    <label>Min Period</label>
-		    <input id="minPeriodInput" type="number" value=0 />
-		</div>
-		<div>
-		    <label>Min Required Network</label>
-		    <select id="minRequiredNetworkInput">
-			<option value="0">No Connection</option>
-			<option value="1">WWAN</option>
-			<option value="2">Wifi</option>
-		    </select>
-		</div>
-		<div>
-		    <label>Allow on Battery</label>
-		    <input type="checkbox" id="allowOnBatteryInput" checked="true" />
-		</div>
-		<div>
-		    <label>Idle Required</label>
-		    <input type="checkbox" id="idleRequiredInput" />
-		</div>
-		<div>
-		    <button id="registerCustomSync" class="otherBtn">Register</button>
-		    <button id="backCustomSync" class="otherBtn">Back</button>
-		</div>
+	    <h2>Output Console</h2>
+	    <div class="output">
+		<textarea id="console" readonly class="outputText"></textarea>
 	    </div>
         </div>
         <script type="text/javascript" src="cordova.js"></script>

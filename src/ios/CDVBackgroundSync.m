@@ -157,10 +157,6 @@ static CDVBackgroundSync *backgroundSync;
 
 - (void)register:(NSDictionary *)registration inList:(NSMutableDictionary**)list
 {
-    if (*list == registrationList && [self getNetworkStatus]) {
-        [self fireSyncEventForRegistration:registration];
-        return;
-    }
     NSString *tag = registration[@"tag"];
     [CDVBackgroundSync validateTag:&tag];
     [self unregisterSyncByTag: tag fromRegistrationList:*list];
@@ -175,6 +171,10 @@ static CDVBackgroundSync *backgroundSync;
     NSString *storageKey = *list == registrationList ? REGISTRATION_LIST_STORAGE_KEY : PERIODIC_REGISTRATION_LIST_STORAGE_KEY;
     [defaults setObject:*list forKey:storageKey];
     [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalMinimum];
+    if (*list == registrationList && [self getNetworkStatus]) {
+        [self fireSyncEventForRegistration:registration];
+        return;
+    }
     if (*list == periodicRegistrationList) {
         [self scheduleSync];
     }
@@ -383,6 +383,7 @@ static CDVBackgroundSync *backgroundSync;
         NSLog(@"Regained network");
         // Dispatch all one off sync events
         [self dispatchSyncEvents];
+        [self scheduleSync];
     } else {
         NSLog(@"Lost Connection");
     }
@@ -489,6 +490,7 @@ static CDVBackgroundSync *backgroundSync;
 {
     if ([[UIDevice currentDevice] batteryState] == UIDeviceBatteryStateCharging) {
         // Device has been plugged in
+        [self scheduleSync];
     } else {
         // Device has been unplugged
     }
@@ -541,4 +543,3 @@ static CDVBackgroundSync *backgroundSync;
     [self performSelector:@selector(foregroundSync) withObject:nil afterDelay:delay];
 }
 @end
-
