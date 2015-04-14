@@ -21,45 +21,95 @@
 
  exports.defineAutoTests = function () {
 
-    describe('Background Sync (syncManager)', function () {
-	it("service worker registration should have a syncManager", function (done) {
+    describe('Background Sync (SyncManagers)', function () {
+	it("service worker registration should have a SyncManager", function (done) {
 	    navigator.serviceWorker.ready.then(function (swreg) {
-		expect(swreg.syncManager).toBeDefined();
+		expect(swreg.sync).toBeDefined();
+		done();
+	    });
+	});
+	it("service worker registration should have a PeriodicSyncManager", function (done) {
+	    navigator.serviceWorker.ready.then(function (swreg) {
+		expect(swreg.periodicSync).toBeDefined();
 		done();
 	    });
 	});
     });
 
-    describe('Check Sync Manager API', function () {
-	it(".register() exists as a function", function (done) {
+    describe('Check SyncManager API', function () {
+	it("sync.register() exists as a function", function (done) {
 	    navigator.serviceWorker.ready.then(function (swreg) {
-		expect(swreg.syncManager.register).toBeDefined();
-		expect(typeof swreg.syncManager.register == 'function').toBe(true);
+		expect(swreg.sync.register).toBeDefined();
+		expect(typeof swreg.sync.register == 'function').toBe(true);
 		done();
 	    });
 	});
-	it(".getRegistrations() exists as a function", function (done) {
+	it("sync.getRegistration() exists as a function", function (done) {
 	    navigator.serviceWorker.ready.then(function (swreg) {
-		expect(swreg.syncManager.getRegistrations).toBeDefined();
-		expect(typeof swreg.syncManager.getRegistrations == 'function').toBe(true);
+		expect(swreg.sync.getRegistration).toBeDefined();
+		expect(typeof swreg.sync.getRegistration == 'function').toBe(true);
 		done();
 	    });
 	});
-	it(".hasPermission() exists as a function", function (done) {
+	it("sync.getRegistrations() exists as a function", function (done) {
 	    navigator.serviceWorker.ready.then(function (swreg) {
-		expect(swreg.syncManager.hasPermission).toBeDefined();
-		expect(typeof swreg.syncManager.hasPermission == 'function').toBe(true);
+		expect(swreg.sync.getRegistrations).toBeDefined();
+		expect(typeof swreg.sync.getRegistrations == 'function').toBe(true);
+		done();
+	    });
+	});
+	it("sync.permissionState() exists as a function", function (done) {
+	    navigator.serviceWorker.ready.then(function (swreg) {
+		expect(swreg.sync.permissionState).toBeDefined();
+		expect(typeof swreg.sync.permissionState == 'function').toBe(true);
+		done();
+	    });
+	});
+    });
+    describe('Check PeriodicSyncManager API', function () {
+	it("periodicSync.register() exists as a function", function (done) {
+	    navigator.serviceWorker.ready.then(function (swreg) {
+		expect(swreg.periodicSync.register).toBeDefined();
+		expect(typeof swreg.periodicSync.register == 'function').toBe(true);
+		done();
+	    });
+	});
+	it("periodicSync.getRegistration() exists as a function", function (done) {
+	    navigator.serviceWorker.ready.then(function (swreg) {
+		expect(swreg.periodicSync.getRegistration).toBeDefined();
+		expect(typeof swreg.periodicSync.getRegistration == 'function').toBe(true);
+		done();
+	    });
+	});
+	it("periodicSync.getRegistrations() exists as a function", function (done) {
+	    navigator.serviceWorker.ready.then(function (swreg) {
+		expect(swreg.periodicSync.getRegistrations).toBeDefined();
+		expect(typeof swreg.periodicSync.getRegistrations == 'function').toBe(true);
+		done();
+	    });
+	});
+	it("periodicSync.permissionState() exists as a function", function (done) {
+	    navigator.serviceWorker.ready.then(function (swreg) {
+		expect(swreg.periodicSync.permissionState).toBeDefined();
+		expect(typeof swreg.periodicSync.permissionState == 'function').toBe(true);
+		done();
+	    });
+	});
+	it("periodicSync.minPossiblePeriod exists as a number", function (done) {
+	    navigator.serviceWorker.ready.then(function (swreg) {
+		expect(swreg.periodicSync.minPossiblePeriod).toBeDefined();
+		expect(swreg.periodicSync.minPossiblePeriod).toEqual(jasmine.any(Number));
 		done();
 	    });
 	});
     });
 
-    describe('Check Sync Manager Functionality', function () {
+    describe('Check SyncManager Functionality', function () {
 	var messageCallback;
 	var swreg;
 	var clearAllRegs = function (done) {
 	    navigator.serviceWorker.ready.then(function (swreg) {
-		swreg.syncManager.getRegistrations().then(function (regs) {
+		swreg.sync.getRegistrations().then(function (regs) {
 		    regs.forEach(function(reg) {
 			reg.unregister();
 		    });
@@ -81,8 +131,79 @@
 	    window.removeEventListener('message', messageCallback);
 	});
 
-	it("hasPermission returns granted", function (done) {
-	    swreg.syncManager.hasPermission().then(function (status) {
+	it("sync.permissionState returns granted", function (done) {
+	    swreg.sync.permissionState().then(function (status) {
+		expect(status).toBeTruthy();
+		expect(status).toEqual(2);
+		done();
+	    },
+	    function (err) {
+		expect(false).toBe(true);
+		done();
+	    });
+	});
+	it("getRegistrations resolves empty list when nothing has been registered", function (done) {
+	    swreg.sync.getRegistrations().then(function (regs) {
+		expect(regs.length).toEqual(0);
+		done();
+	    },
+	    function (err) {
+		expect(false).toBe(true);
+		done();
+	    });
+	});
+	it("getRegistration rejects on empty list", function (done) {
+	    swreg.sync.getRegistration("nonexistent").then(function () {
+		expect(false).toBe(true);
+		done();
+	    },
+	    function () {
+		done();
+	    });
+	});
+	it("empty registration creates instant sync", function (done) {
+	    messageCallback = function() {
+		done();
+	    };
+	    window.addEventListener('message', messageCallback);
+	    swreg.sync.register().then(function () {
+	    },
+	    function (err) {
+		expect(false).toBe(true);
+		done();
+	    });
+	});
+    });
+
+    describe('Check PeriodicSyncManager Functionality', function () {
+	var messageCallback;
+	var swreg;
+	var clearAllRegs = function (done) {
+	    navigator.serviceWorker.ready.then(function (swreg) {
+		swreg.periodicSync.getRegistrations().then(function (regs) {
+		    regs.forEach(function(reg) {
+			reg.unregister();
+		    });
+		    done();
+		},
+		function (err) {
+		    done();
+		});
+	    });
+	};
+	navigator.serviceWorker.ready.then(function (reg) {
+	    swreg = reg;
+	});
+	beforeEach(function(done) {
+	    clearAllRegs(done);
+	});
+	afterEach(function(done) {
+	    clearAllRegs(done);
+	    window.removeEventListener('message', messageCallback);
+	});
+
+	it("periodicSync.permissionState returns granted", function (done) {
+	    swreg.periodicSync.permissionState().then(function (status) {
 		expect(status).toBeTruthy();
 		expect(status).toEqual(2);
 		done();
@@ -93,7 +214,7 @@
 	    });
 	});
 	it("getRegistrations with empty list", function (done) {
-	    swreg.syncManager.getRegistrations().then(function (regs) {
+	    swreg.periodicSync.getRegistrations().then(function (regs) {
 		expect(regs.length).toEqual(0);
 		done();
 	    },
@@ -102,9 +223,42 @@
 		done();
 	    });
 	});
+	it("getRegistration rejects on empty list", function (done) {
+	    swreg.periodicSync.getRegistration("nonexistent").then(function () {
+		expect(false).toBe(true);
+		done();
+	    },
+	    function () {
+		done();
+	    });
+	});
+	it("getRegistration rejects for nonexistent tag", function (done) {
+	    swreg.periodicSync.register({tag:"exists", minPeriod: 10000000}).then(function () {
+		swreg.periodicSync.getRegistration("nonexistent").then(function () {
+		    expect(false).toBe(true);
+		    done();
+		},
+		function () {
+		    done();
+		});
+	    },
+	    function () {
+		expect(false).toBe(true);
+		done();
+	    });
+	});
+	it("Registing empty periodicSync should reject for lack of minPeriod", function (done) {
+	    swreg.periodicSync.register().then(function() {
+		expect(false).toBe(true);
+		done();
+	    }, function (err) {
+		expect(err).toEqual("Invalid minPeriod");
+		done();
+	    });
+	});
 	it("register and getRegistrations with one element", function (done) {
-	    swreg.syncManager.register({"minDelay":50000}).then(function (regs) {
-		swreg.syncManager.getRegistrations().then(function (regs) {
+	    swreg.periodicSync.register({"minPeriod":500000000}).then(function (regs) {
+		swreg.periodicSync.getRegistrations().then(function (regs) {
 		    expect(regs.length).toBe(1);
 		    done();
 		},
@@ -119,8 +273,8 @@
 	    });
 	});
 	it("registrations received from getRegistrations .unregister()", function (done) {
-	    swreg.syncManager.register({"minDelay":50000}).then(function () {
-		swreg.syncManager.getRegistrations().then(function (regs) {
+	    swreg.periodicSync.register({"minPeriod":500000000}).then(function () {
+		swreg.periodicSync.getRegistrations().then(function (regs) {
 		    expect(regs.length).toBe(1);
 		    regs.forEach(function(reg) {
 			reg.unregister();
@@ -138,17 +292,16 @@
 	    });
 	});
 	it("getRegistration resolves correct single registration", function (done) {
-	    swreg.syncManager.register({id:"1", minDelay: 1000}).then(function () {
-		swreg.syncManager.register({id:"2", minDelay: 1000, maxDelay: 2000, allowOnBattery: false, idleRequired: true}).then(function () {
-		    swreg.syncManager.register({id:"3", minDelay: 1000}).then(function () {
-			swreg.syncManager.getRegistrations().then(function (regs) {
+	    swreg.periodicSync.register({tag:"1", minPeriod: 10000000}).then(function () {
+		swreg.periodicSync.register({tag:"2", minPeriod:100000000, networkState:"any", powerState:"avoid-draining"}).then(function () {
+		    swreg.periodicSync.register({tag:"3", minPeriod: 10000000}).then(function () {
+			swreg.periodicSync.getRegistrations().then(function (regs) {
 			    expect(regs.length).toEqual(3);
-			    swreg.syncManager.getRegistration('2').then(function (reg) {
-				expect(reg.id).toEqual("2");
-				expect(reg.maxDelay).toEqual(2000);
-				expect(reg.minDelay).toEqual(1000);
-				expect(reg.allowOnBattery).toBeFalsy();
-				expect(reg.idleRequired).toBeTruthy();
+			    swreg.periodicSync.getRegistration('2').then(function (reg) {
+				expect(reg.tag).toEqual("2");
+				expect(reg.minPeriod).toEqual(100000000);
+				expect(reg.powerState).toBeTruthy();
+				expect(reg.networkState).toBeFalsy();
 				done();
 			    },
 			    function () {
@@ -176,59 +329,26 @@
 		done();
 	    });
 	});
-	it("getRegistration rejects on empty list", function (done) {
-	    swreg.syncManager.getRegistration("nonexistent").then(function () {
-		expect(false).toBe(true);
-		done();
-	    },
-	    function () {
-		done();
-	    });
-	});
-	it("getRegistration for nonexistent id rejects", function (done) {
-	    swreg.syncManager.register({id:"exists", minDelay: 1000}).then(function () {
-		swreg.syncManager.getRegistration("nonexistent").then(function () {
-		    expect(false).toBe(true);
-		    done();
-		},
-		function () {
-		    done();
-		});
-	    },
-	    function () {
-		expect(false).toBe(true);
-		done();
-	    });
-	});
-	it("empty registration creates instant sync", function (done) {
-	    messageCallback = function() {
-		done();
-	    };
-	    window.addEventListener('message', messageCallback);
-	    swreg.syncManager.register().then(function () {
-	    },
-	    function (err) {
-		expect(false).toBe(true);
-		done();
-	    });
-	});
-	it("same id registrations get overwritten", function (done) {
+	it("same tag registrations get overwritten", function (done) {
 	    messageCallback = function(event) {
-		expect(event.data.minDelay).toEqual(0);
+		expect(event.data.tag).toEqual("test");
+		expect(event.data.minPeriod).toEqual(2000);
 		done();
 	    };
 	    window.addEventListener('message', messageCallback);
-	    swreg.syncManager.register({id:"test", minDelay:500}).then(function () {
-		swreg.syncManager.register({id:"test"}).then(function () {
-		    swreg.syncManager.getRegistrations().then(function(regs) {
+	    swreg.periodicSync.register({tag:"test", minPeriod:500000000}).then(function () {
+		swreg.periodicSync.register({tag:"test", minPeriod:2000}).then(function () {
+		    swreg.periodicSync.getRegistrations().then(function(regs) {
 			expect(regs.length).toEqual(1);
 		    },
 		    function (err) {
 			expect(false).toBe(true);
+			done();
 		    });
 		},
 		function (err) {
 		    expect(false).toBe(true);
+		    done();
 		});
 	    },
 	    function (err) {
@@ -236,23 +356,26 @@
 		done();
 	    });
 	});
-	it("empty id registrations get overwritten", function (done) {
+	it("empty tag registrations get overwritten", function (done) {
 	    messageCallback = function(event) {
-		expect(event.data.minDelay).toEqual(0);
+		expect(event.data.tag).toEqual("");
+		expect(event.data.minPeriod).toEqual(2000);
 		done();
 	    };
 	    window.addEventListener('message', messageCallback);
-	    swreg.syncManager.register({minDelay:500}).then(function () {
-		swreg.syncManager.register().then(function () {
-		    swreg.syncManager.getRegistrations().then(function(regs) {
+	    swreg.periodicSync.register({minPeriod:5000000000}).then(function () {
+		swreg.periodicSync.register({minPeriod:2000}).then(function () {
+		    swreg.periodicSync.getRegistrations().then(function(regs) {
 			expect(regs.length).toEqual(1);
 		    },
 		    function (err) {
 			expect(false).toBe(true);
+			done();
 		    });
 		},
 		function (err) {
 		    expect(false).toBe(true);
+		    done();
 		});
 	    },
 	    function (err) {
@@ -261,14 +384,14 @@
 	    });
 	});
     });
-    
+
     describe('Verify Syncing and Batching', function () {
 	var originalTimeout;
 	var messageCallback;
 	var swreg;
 	var clearAllRegs = function (done) {
 	    navigator.serviceWorker.ready.then(function (swreg) {
-		swreg.syncManager.getRegistrations().then(function (regs) {
+		swreg.periodicSync.getRegistrations().then(function (regs) {
 		    regs.forEach(function(reg) {
 			reg.unregister();
 		    });
@@ -292,31 +415,24 @@
 	    clearAllRegs(done);
 	    window.removeEventListener('message', messageCallback);
 	});
-	it("batch instant sync with short delayed sync", function (done) {
-	    var syncCount = 0;
+	it("batch short period periodicSync with longer period periodicSync", function (done) {
+	    var periodicSyncCount = 0;
 	    var instantDispatchTime;
 	    messageCallback = function(event) {
-		syncCount++;
-		if (event.data.name === "instant") {
-		    expect(Date.now() - instantDispatchTime).toBeGreaterThan(499);
+		periodicSyncCount++;
+		if (event.data.tag === "short") {
+		    expect(Date.now() - instantDispatchTime).toBeGreaterThan(2999);
 		}
-		if (syncCount == 2) {
-		    // Ensure the registration list is empty
-		    swreg.syncManager.getRegistrations().then(function (regs) {
-			expect(regs.length).toEqual(0);
-			done();
-		    },
-		    function () {
-			expect(false).toBe(true);
-			done();
-		    });
+		if (event.data.tag === "long") {
+		    expect(periodicSyncCount).toEqual(2);
+		    done();
 		}
 	    };
 	    window.addEventListener('message', messageCallback);
-	    swreg.syncManager.register({id:"delayed", minDelay:500}).then(function () {
-		instantDispatchTime = Date.now();
-		swreg.syncManager.register({id:"instant"}).then(function () {
-		    swreg.syncManager.getRegistrations().then(function (regs) {
+	    instantDispatchTime = Date.now();
+	    swreg.periodicSync.register({tag:"short", minPeriod:2000}).then(function () {
+		swreg.periodicSync.register({tag:"long", minPeriod:3000}).then(function () {
+		    swreg.periodicSync.getRegistrations().then(function (regs) {
 			expect(regs.length).toEqual(2);
 		    },
 		    function () {
@@ -332,39 +448,19 @@
 		done();
 	    });
 	});
-	it("batch to prevent maxDelay form expiring", function (done) {
-	    var syncCount = 0;
-	    var maxTime, nomaxTime;
+	it("short period periodicSync should fire without waiting for long period sync outside threshold", function (done) {
+	    var periodicSyncCount = 0;
 	    messageCallback = function(event) {
-		syncCount++;
-		if (event.data.name === "max") {
-		    maxTime = Date.now();
-		    expect(nomaxTime).toBeUndefined();
-		}
-		if (event.data.name === "nomax") {
-		    nomaxTime = Date.now();
-		    expect(nomaxTime - maxTime).toBeGreaterThan(30);
-		}
-		if (syncCount == 2) {
-		    // Ensure the registration list is empty
-		    swreg.syncManager.getRegistrations().then(function (regs) {
-			expect(regs.length).toEqual(0);
-			done();
-		    },
-		    function () {
-			expect(false).toBe(true);
-			done();
-		    });
-		}
+		periodicSyncCount++;
+		expect(event.data.tag).toEqual("short");
+		expect(periodicSyncCount).toEqual(1);
+		done();
 	    };
 	    window.addEventListener('message', messageCallback);
-	    swreg.syncManager.register({id:"max", minDelay:100, maxDelay:200}).then(function () {
-		swreg.syncManager.register({id:"nomax", minDelay: 230}).then(function () {
-		    swreg.syncManager.getRegistrations().then(function (regs) {
+	    swreg.periodicSync.register({tag:"long", minPeriod:24*3600*1000}).then(function (reg) {
+		swreg.periodicSync.register({tag:"short", minPeriod:2000}).then(function () {
+		    swreg.periodicSync.getRegistrations().then(function(regs) {
 			expect(regs.length).toEqual(2);
-		    },
-		    function () {
-			expect(false).toBe(true);
 		    });
 		},
 		function () {
@@ -376,84 +472,21 @@
 		done();
 	    });
 	});
-	it("expired sync should unregister without firing", function (done) {
-	    var syncCount = 0;
-	    messageCallback = function(event) {
-		syncCount++;
-		expect(event.data.name).toEqual("Nomax");
-
-		// Ensure the registration list is empty
-		swreg.syncManager.getRegistrations().then(function (regs) {
-		    expect(regs.length).toEqual(0);
-		    done();
-		},
-		function () {
-		    expect(false).toBe(true);
-		    done();
-		});
-	    };
-	    window.addEventListener('message', messageCallback);
-	    swreg.syncManager.register({id:"Max", maxDelay:200, idleRequired:true}).then(function (reg) {
-		swreg.syncManager.register({id:"Nomax", minDelay: 230}).then(function () {
-		    swreg.syncManager.getRegistrations().then(function (regs) {
-			expect(regs.length).toEqual(2);
-		    },
-		    function () {
-			expect(false).toBe(true);
-		    });
-		},
-		function () {
-		    expect(false).toBe(true);
-		});
-	    },
-	    function (err) {
-		expect(false).toBe(true);
-		done();
-	    });
-	});
-	it("immediate sync should fire without waiting for long delay outside threshold", function (done) {
-	    var syncCount = 0;
-	    messageCallback = function(event) {
-		syncCount++;
-		expect(event.data.name).toEqual("immediate");
-		expect(syncCount).toEqual(1);
-		swreg.syncManager.getRegistrations().then(function (regs) {
-		    expect(regs.length).toEqual(1);
-		    done();
-		},
-		function () {
-		    expect(false).toBe(true);
-		    done();
-		});
-	    };
-	    window.addEventListener('message', messageCallback);
-	    swreg.syncManager.register({id:"longSync", minDelay:35*60*1000}).then(function (reg) {
-		swreg.syncManager.register({id:"immediate"}).then(function () {
-		},
-		function () {
-		    expect(false).toBe(true);
-		});
-	    },
-	    function (err) {
-		expect(false).toBe(true);
-		done();
-	    });
-	});
-	it("periodic sync reschedules with correct minPeriod", function (done) {
-	    var syncCount = 0;
+	it("periodic periodicSync reschedules with correct minPeriod", function (done) {
+	    var periodicSyncCount = 0;
 	    var initTime;
 	    messageCallback = function(event) {
-		syncCount++;
-		if (syncCount == 1) {
-		    expect(Date.now() - initTime).toBeLessThen(200);
+		periodicSyncCount++;
+		if (periodicSyncCount == 1) {
+		    expect(Date.now() - initTime).toBeLessThen(2221);
 		    initTime = Date.now();
 		}
-		if (syncCount > 1) {
-		    expect(Date.now() - initTime).toBeGreaterThan(200);
+		if (periodicSyncCount > 1) {
+		    expect(Date.now() - initTime).toBeGreaterThan(2221);
 		    initTime = Date.now();
 		}
-		if (syncCount == 3) {
-		    swreg.syncManager.getRegistrations().then(function (regs) {
+		if (periodicSyncCount == 3) {
+		    swreg.periodicSync.getRegistrations().then(function (regs) {
 			expect(regs.length).toEqual(1);
 			done();
 		    },
@@ -465,8 +498,8 @@
 	    };
 	    window.addEventListener('message', messageCallback);
 	    initTime = Date.now();
-	    swreg.syncManager.register({id:"periodic", minPeriod: 200}).then(function (reg) {
-		swreg.syncManager.getRegistrations().then(function (regs) {
+	    swreg.periodicSync.register({tag:"periodic", minPeriod: 2222}).then(function (reg) {
+		swreg.periodicSync.getRegistrations().then(function (regs) {
 		    expect(regs.length).toEqual(1);
 		},
 		function () {

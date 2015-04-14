@@ -17,25 +17,29 @@
  under the License.
  */
 
-var exec = require('cordova/exec');
-var syncManager = require('./SyncManager');
-
-SyncPermissionStatus = {
+SyncPermissionState = {
     default: 0,
     denied: 1,
     granted: 2
 };
 
-SyncNetworkType = {
-    networkOffline: 0,
-    networkOnline: 1,
-    networkNonMobile: 2
+SyncNetworkState = {
+    any: 0,
+    avoid_cellular: 1,
+    online: 2
 };
 
-Object.freeze(SyncPermissionStatus);
-Object.freeze(SyncNetworkType);
+SyncPowerState = {
+    auto: 0,
+    avoid_draining: 1
+};
+
+Object.freeze(SyncPermissionState);
+Object.freeze(SyncNetworkState);
+Object.freeze(SyncPowerState);
 
 module.exports = {
-    SyncPermissionStatus: SyncPermissionStatus,
-    SyncNetworkType: SyncNetworkType
+    SyncPermissionState: SyncPermissionState,
+    SyncNetworkState: SyncNetworkState,
+    SyncPowerState: SyncPowerState
 };

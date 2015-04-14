@@ -19,19 +19,26 @@
 
 var exec = require('cordova/exec');
 
-function SyncRegistration(options) {
+function PeriodicSyncRegistration(options) {
     options = options || {};
     this.tag = options.tag || "";
+    this.minPeriod = options.minPeriod || 0;
+    this.networkState = SyncNetworkState.online;
+    if (typeof options.networkState != 'undefined') { //This is necessary since the default is nonzero - would overwrite custom 0 value with ||
+	this.networkState = options.networkState;
+    }
+    this.powerState = options.powerState || SyncPowerState.auto;
+    this._timestamp = options._timestamp || Date.now();
 }
 
-SyncRegistration.prototype.unregister = function() {
+PeriodicSyncRegistration.prototype.unregister = function() {
     var tag = this.tag;
     return new Promise(function(resolve, reject) {
 	function success(didUnregister) {
 	    resolve(!!didUnregister);
 	}
-	exec(success, null, "BackgroundSync", "unregister", [tag]);
+	exec(success, null, "BackgroundSync", "unregister", [tag, "periodic"]);
     });
 };
 
-module.exports = SyncRegistration;
+module.exports = PeriodicSyncRegistration;

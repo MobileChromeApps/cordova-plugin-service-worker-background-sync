@@ -34,43 +34,49 @@ var app = {
     // function, we must explicitly call 'app.receivedEvent(...);'
     onDeviceReady: function() {
         app.receivedEvent('deviceready');
+	clobberlog();
 	navigator.serviceWorker.ready.then(function(swreg) {
-	    var buttons = document.getElementsByClassName("btn");
-	    var onclickf = function() {
-		var id = this.id;
-		var minNetworkRequired = id[id.length-1];
-		var minDelay = Number(id.substring(3,5)) * 1000;
-		var maxDelay = 0;
-		if(id[id.length-2] !== "s") {
-		    maxDelay = Number(id.substring(8, 10)) * 1000;
-		} else {
-		    minDelay *= 60;
-		}
-		swreg.syncManager.register({id: id, minDelay: minDelay, maxDelay: maxDelay, minRequiredNetwork: minNetworkRequired});
+	    document.getElementById("OOBtn").onclick = function () {
+		var tag = document.getElementById("OOTagInput").value;
+		swreg.sync.register({tag: tag}).then(function(reg) {
+		    console.log("Registered " + reg.tag);
+		}, function (err) {
+		    console.log(err);
+		});
 	    };
-	    for(var i = 0; i < buttons.length; i++) {
-		buttons[i].addEventListener("click", onclickf);
-	    }
-	    document.getElementById("syncOnCharging").addEventListener("click", function() {
-		swreg.syncManager.register({minRequiredNetwork: 0, allowOnBattery: false});
-	    });
-	    document.getElementById("syncOnIdle").addEventListener("click", function() {
-		swreg.syncManager.register({minRequiredNetwork: 0, idleRequired: true});
-	    });
-	    document.getElementById("customSync").addEventListener("click", function() {
-		document.getElementById("mainPage").className = "page transition left";
-		document.getElementById("customSyncPage").className = "page transition center";
-	    });
-	    document.getElementById("registerCustomSync").addEventListener("click", function() {
-		document.getElementById("mainPage").className = "page transition center";
-		document.getElementById("customSyncPage").className = "page transition right";
-		registerCustomSync(swreg);
-		resetCustomSyncPage();
-	    });
-	    document.getElementById("backCustomSync").addEventListener("click", function() {
-		document.getElementById("mainPage").className = "page transition center";
-		document.getElementById("customSyncPage").className = "page transition right";
-		resetCustomSyncPage();
+	    document.getElementById("PBtn").onclick = function () {
+		var tag = document.getElementById("PTagInput").value;
+		var minPeriod = document.getElementById("minPeriod").value;
+		var networkState = document.getElementById("networkState").value;
+		var powerState = document.getElementById("powerState").checked;
+		swreg.periodicSync.register({
+						tag: tag,
+						minPeriod: minPeriod,
+						networkState: networkState,
+						powerState: powerState
+					    }).then(
+			function(reg) {
+			    console.log("Registered " + reg.tag);
+			}, function (err) {
+			    console.log(err);
+			});
+	    };
+	    document.getElementById("PUnregisterAll").onclick = function () {
+		swreg.periodicSync.getRegistrations().then(function(regs) {
+		    regs.forEach(function(reg) {
+			console.log("Unregistering " + reg.tag);
+			reg.unregister();
+		    });
+		});
+	    };
+	    window.addEventListener('message', function (event) {
+		if (event.data.type === "one-off") {
+		    console.log("Sync Event " + event.data.tag);
+		    console.log("Unregistering " + event.data.tag);
+		} else {
+		    console.log("Periodic Sync Event " + event.data.tag);
+		    console.log("Reregistering " + event.data.tag + " with minPeriod " + event.data.minPeriod);
+		}
 	    });
 	});
     },
@@ -106,14 +112,32 @@ var registerCustomSync = function(swreg) {
 			       }).then(function() {console.log("Success");}, function() {alert("Failed to Register Sync");});
 };
 
-var resetCustomSyncPage = function() {
-    document.getElementById("idInput").value = "";
-    document.getElementById("minDelayInput").value = 0;
-    document.getElementById("maxDelayInput").value = 0;
-    document.getElementById("minPeriodInput").value = 0;
-    document.getElementById("minRequiredNetworkInput").value = 0;
-    document.getElementById("allowOnBatteryInput").checked = true;
-    document.getElementById("idleRequiredInput").checked = false;
-};
+function newLog (arg) {
+    var textArea = document.getElementById("console");
+    textArea.value = timestamp() + ": " + arg + '\n' + textArea.value;
+}
+
+function clobberlog (arg) {
+    var oldLog = Function.prototype.bind.call(console.log, console);
+    console.log = function (arg) {
+	oldLog(arg);
+	newLog(arg);
+    };
+}
+
+function timestamp () {
+    var date = new Date();
+    var ms = date.getMilliseconds();
+    var s = date.getSeconds();
+    var mi = date.getMinutes();
+    var h = date.getHours();
+    var d = date.getDate();
+    var mo = date.getMonth() + 1;
+    var y = date.getFullYear();
+    function z (num) {
+	return "" + (num < 10 ? "0" : "") + num;
+    }
+    return "" + y + ":" + z(mo) + ":" + z(d) + ":" + z(h) + ":" + z(mi) + ":" + z(s) + ":" + (ms < 100 ? "0" : "") + (ms < 10 ? "0" : "") + ms;
+}
 
 app.initialize();

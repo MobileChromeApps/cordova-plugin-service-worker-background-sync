@@ -13,15 +13,21 @@
     <js-module src="www/SyncManager.js" name="SyncManager">
 	<clobbers target="SyncManager" />
     </js-module>
+    <js-module src="www/PeriodicSyncManager.js" name="PeriodicSyncManager">
+	<clobbers target="PeriodicSyncManager" />
+    </js-module>
     <js-module src="www/SyncRegistration.js" name="SyncRegistration">
 	<clobbers target="SyncRegistration" />
     </js-module>
-    <js-module src="www/Assets.js" name="Assets">
+    <js-module src="www/PeriodicSyncRegistration.js" name="PeriodicSyncRegistration">
+	<clobbers target="PeriodicSyncRegistration" />
+    </js-module>
+    <js-module src="www/Enums.js" name="Enums">
 	<clobbers target="" />
     </js-module>
 
     <!-- Assets for use by service worker -->
-    <asset src="www/sw_assets/sync.js" target="sw_assets/sync.js" />
+    <asset src="www/sw_assets/syncevents.js" target="sw_assets/syncevents.js" />
     <asset src="www/sw_assets/syncmanagerasset.js" target="sw_assets/syncmanagerasset.js" />
 
     <platform name="ios">
