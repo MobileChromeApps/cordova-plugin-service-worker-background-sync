@@ -48,7 +48,7 @@ var app = {
 		var tag = document.getElementById("PTagInput").value;
 		var minPeriod = document.getElementById("minPeriod").value;
 		var networkState = document.getElementById("networkState").value;
-		var powerState = document.getElementById("powerState").checked;
+		var powerState = document.getElementById("powerState").value;
 		swreg.periodicSync.register({
 						tag: tag,
 						minPeriod: minPeriod,

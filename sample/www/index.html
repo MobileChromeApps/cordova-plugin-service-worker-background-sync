@@ -55,16 +55,19 @@
 			    <input id="minPeriod" type="number" value=2000 />
 			</div>
 			<div>
-			    <label>Min Required Network</label>
+			    <label>Network State</label>
 			    <select id="networkState">
-				<option value="0">Any</option>
-				<option value="1">Avoid Cellular</option>
-				<option value="2" selected="selected">Online</option>
+				<option value="any">Any</option>
+				<option value="avoid-cellular">Avoid Cellular</option>
+				<option value="online" selected="selected">Online</option>
 			    </select>
 			</div>
 			<div>
-			    <label>Avoid Draining</label>
-			    <input type="checkbox" id="powerState"/>
+			    <label>Power State</label>
+			    <select id="powerState">
+				<option value="auto">Auto</option>
+				<option value="avoid-draining">Avoid Draining</option>
+			    </select>
 			</div>
 			<div class="PBtnDiv">
 			    <button id="PBtn">Register</button>
