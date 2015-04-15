@@ -74,14 +74,7 @@ PeriodicSyncManager.prototype.getRegistrations = function() {
 
 PeriodicSyncManager.prototype.permissionState = function() {
     return new Promise(function(resolve, reject) {
-	function callback(message) {
-	    if (message === "granted") {
-		resolve(SyncPermissionState.granted);
-	    } else {
-		resolve(SyncPermissionState.denied);
-	    }
-	}
-	exec(callback, null, "BackgroundSync", "hasPermission", []);
+	exec(resolve, null, "BackgroundSync", "hasPermission", []);
     });
 };
 

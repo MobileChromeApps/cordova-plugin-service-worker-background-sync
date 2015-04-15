@@ -54,14 +54,7 @@ SyncManager.prototype.getRegistrations = function() {
 
 SyncManager.prototype.permissionState = function() {
     return new Promise(function(resolve, reject) {
-	function success(message) {
-	    if (message === "granted") {
-		resolve(SyncPermissionState.granted);
-	    } else {
-		resolve(SyncPermissionState.denied);
-	    }
-	}
-	exec(success, null, "BackgroundSync", "hasPermission", []);
+	exec(resolve, null, "BackgroundSync", "hasPermission", []);
     });
 };
 
