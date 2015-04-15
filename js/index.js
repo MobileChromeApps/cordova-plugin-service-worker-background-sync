@@ -36,39 +36,14 @@ var app = {
         app.receivedEvent('deviceready');
 	clobberlog();
 	navigator.serviceWorker.ready.then(function(swreg) {
-	    document.getElementById("OOBtn").onclick = function () {
-		var tag = document.getElementById("OOTagInput").value;
-		swreg.sync.register({tag: tag}).then(function(reg) {
-		    console.log("Registered " + reg.tag);
-		}, function (err) {
-		    console.log(err);
-		});
-	    };
-	    document.getElementById("PBtn").onclick = function () {
-		var tag = document.getElementById("PTagInput").value;
-		var minPeriod = document.getElementById("minPeriod").value;
-		var networkState = document.getElementById("networkState").value;
-		var powerState = document.getElementById("powerState").value;
-		swreg.periodicSync.register({
-						tag: tag,
-						minPeriod: minPeriod,
-						networkState: networkState,
-						powerState: powerState
-					    }).then(
-			function(reg) {
-			    console.log("Registered " + reg.tag);
-			}, function (err) {
-			    console.log(err);
-			});
-	    };
-	    document.getElementById("PUnregisterAll").onclick = function () {
-		swreg.periodicSync.getRegistrations().then(function(regs) {
-		    regs.forEach(function(reg) {
-			console.log("Unregistering " + reg.tag);
-			reg.unregister();
-		    });
-		});
-	    };
+	    document.getElementById("OOTagInput").oninput = function () { updateButtonText("OO"); };
+	    document.getElementById("PTagInput").oninput = function () { updateButtonText("P"); };
+	    document.getElementById("OORegister").onclick = function () { register("OO"); };
+	    document.getElementById("OOUnregister").onclick = function () { unregister("OO"); };
+	    document.getElementById("OOGet").onclick = function () { getRegistrations("OO"); };
+	    document.getElementById("PRegister").onclick = function () { register("P"); };
+	    document.getElementById("PUnregister").onclick = function () { unregister("P"); };
+	    document.getElementById("PGet").onclick = function () { getRegistrations("P"); };
 	    window.addEventListener('message', function (event) {
 		if (event.data.type === "one-off") {
 		    console.log("Sync Event " + event.data.tag);
@@ -93,24 +68,81 @@ var app = {
     }
 };
 
-var registerCustomSync = function(swreg) {
-    var id = document.getElementById("idInput").value;
-    var minDelay = document.getElementById("minDelayInput").value;
-    var maxDelay = document.getElementById("maxDelayInput").value;
-    var minPeriod = document.getElementById("minPeriodInput").value;
-    var minRequiredNetwork = document.getElementById("minRequiredNetworkInput").value;
-    var allowOnBattery = document.getElementById("allowOnBatteryInput").checked;
-    var idleRequired = document.getElementById("idleRequiredInput").checked;
-    swreg.syncManager.register({
-				id: id,
-				minDelay: minDelay,
-				maxDelay: maxDelay,
-				minPeriod: minPeriod,
-				minRequiredNetwork: minRequiredNetwork,
-				allowOnBattery: allowOnBattery,
-				idleRequired: idleRequired
-			       }).then(function() {console.log("Success");}, function() {alert("Failed to Register Sync");});
-};
+function register (prefix) {
+    var tag = document.getElementById(prefix + "TagInput").value;
+    // When registering one-off syncs, these properties have no effect
+    var minPeriod = document.getElementById("minPeriod").value;
+    var networkState = document.getElementById("networkState").value;
+    var powerState = document.getElementById("powerState").value;
+    navigator.serviceWorker.ready.then(function (swreg) {
+	var manager = prefix === "OO" ? swreg.sync : swreg.periodicSync;
+	manager.register({
+			    tag: tag,
+			    minPeriod: minPeriod,
+			    networkState: networkState,
+			    powerState: powerState
+			}).then(
+	function(reg) {
+	    console.log("Registered " + reg.tag);
+	}, function (err) {
+	    console.log(err);
+	});
+	document.getElementById(prefix + "TagInput").value = "";
+	updateButtonText(prefix);
+    });
+}
+
+function unregister (prefix) {
+    var tag = document.getElementById(prefix + "TagInput").value;
+    navigator.serviceWorker.ready.then(function (swreg) {
+	var manager = prefix === "OO" ? swreg.sync : swreg.periodicSync;
+	if (tag !== "") {
+	    manager.getRegistration(tag).then(function (reg) {
+		console.log("Unregistering " + reg.tag);
+		reg.unregister();
+	    }, function (err) {
+		console.log(err);
+	    });
+	} else {
+	    manager.getRegistrations().then(function(regs) {
+		if (regs.length === 0) {
+		    console.log("No registrations to unregister");
+		}
+		regs.forEach(function(reg) {
+		    console.log("Unregistering " + reg.tag);
+		    reg.unregister();
+		});
+	    });
+	}
+	document.getElementById(prefix + "TagInput").value = "";
+	updateButtonText(prefix);
+    });
+}
+
+function getRegistrations (prefix) {
+    var tag = document.getElementById(prefix + "TagInput").value;
+    navigator.serviceWorker.ready.then(function (swreg) {
+	var manager = prefix === "OO" ? swreg.sync : swreg.periodicSync;
+	if (tag !== "") {
+	    manager.getRegistration(tag).then(function (reg) {
+		console.log(tag + ": " + objectToString(reg));
+	    }, function (err) {
+		console.log(err);
+	    });
+	} else {
+	    manager.getRegistrations().then(function (regs) {
+		if (regs.length === 0) {
+		    console.log("No registrations to get");
+		}
+		regs.forEach(function (reg) {
+		    console.log(reg.tag + ": " + objectToString(reg));
+		});
+	    });
+	}
+	document.getElementById(prefix + "TagInput").value = "";
+	updateButtonText(prefix);
+    });
+}
 
 function newLog (arg) {
     var textArea = document.getElementById("console");
@@ -138,6 +170,30 @@ function timestamp () {
 	return "" + (num < 10 ? "0" : "") + num;
     }
     return "" + y + ":" + z(mo) + ":" + z(d) + ":" + z(h) + ":" + z(mi) + ":" + z(s) + ":" + (ms < 100 ? "0" : "") + (ms < 10 ? "0" : "") + ms;
+}
+
+function objectToString (object) {
+    var toPrint = "";
+    for (var propertyName in object) {
+	if (typeof object[propertyName] === 'function') {
+	    continue;
+	}
+	if (propertyName[0] === '_') {
+	    continue;
+	}
+	toPrint = toPrint + '\n\t' + propertyName + ": " + object[propertyName];
+    }
+    return toPrint;
+}
+
+function updateButtonText (prefix) {
+    if (document.getElementById(prefix + "TagInput").value === "") {
+	document.getElementById(prefix + "Unregister").textContent = "Unregister All";
+	document.getElementById(prefix + "Get").textContent = "Get Registrations";
+    } else {
+	document.getElementById(prefix + "Unregister").textContent = "Unregister";
+	document.getElementById(prefix + "Get").textContent = "Get Registration";
+    }
 }
 
 app.initialize();
