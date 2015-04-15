@@ -48,11 +48,18 @@ body {
 
 /* Portrait layout (default) */
 .app {
-    position:absolute;             /* position in the center of the screen */
+    position: absolute;
     height:100%;                   /* text area height */
     width:100%;                   /* text area width */
     text-align:center;
     padding:20px 0px 0px 0px; 
+    display: flex;
+    display: -webkit-flex;
+    -webkit-flex-direction: column;
+    flex-direction: column;
+    -webkit-justify-content: center;
+    justify-content: center;
+    -webkit-box-sizing: border-box;
 }
 
 /* Landscape layout (with min-width) */
@@ -75,8 +82,8 @@ h1 {
 }
 
 .heading {
-    width: 80%;
-    padding-left: 10%;
+    -webkit-flex: 0 1 auto;
+    flex: 0 1 auto;
 }
 
 .event {
@@ -118,20 +125,28 @@ h1 {
 }
 
 .output {
-    width: 100%;
-    height: 40%;
+    -webkit-flex: 1 1 auto;
+    flex: 1 1 auto;
+    padding: 10px;
+    display: flex;
+    display: -webkit-flex;
+    -webkit-flex-direction: column;
 }
-.outputText {
-    width: 90%;
-    height: 100%;
-    -webkit-box-sizing: border-box;
+
+#mainPage {
+    -webkit-flex: 0 1 auto;
+    flex: 0 1 auto;
 }
+
+#console {
+    -webkit-flex: 1 1 auto;
+}
+
 .PSync {
     display: -webkit-box;
     -webkit-box-pack:center;
     -webkit-box-aligh:center;
 }
 .PSyncInner {
-    width: 60%;
     text-align: left;
 }
