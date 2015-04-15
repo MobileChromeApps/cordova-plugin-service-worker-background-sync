@@ -63,7 +63,13 @@ static CDVBackgroundSync *backgroundSync;
 {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     registrationList = [[defaults objectForKey:REGISTRATION_LIST_STORAGE_KEY] mutableCopy];
+    if (registrationList == nil) {
+        registrationList = [NSMutableDictionary dictionary];
+    }
     periodicRegistrationList = [[defaults objectForKey:PERIODIC_REGISTRATION_LIST_STORAGE_KEY] mutableCopy];
+    if (periodicRegistrationList == nil) {
+        periodicRegistrationList = [NSMutableDictionary dictionary];
+    }
     if (([periodicRegistrationList count] + [registrationList count]) != 0) {
         [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalMinimum];
     }
