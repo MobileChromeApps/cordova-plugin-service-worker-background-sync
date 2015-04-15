@@ -25,11 +25,11 @@ navigator.serviceWorker.ready.then(function (serviceWorkerRegistration) {
 ###Checking Permission
 In the iOS implementation of background sync, permission defaults to granted. However, the user can disable background refresh capabilities manually. If permission is denied, sync events can still be executed in the foreground, but no sync events will be executed while the app is idle or in the background.
 ```javascript
-serviceWorkerRegistration.syncManager.permissionState().then(function(permissionState) {
-    if (permissionState == SyncPermissionState.granted) {
+serviceWorkerRegistration.sync.permissionState().then(function(permissionState) {
+    if (permissionState === "granted") {
         // We have permission to use background sync!
     }
-    if (permissionState == SyncPermissionState.denied) {
+    if (permissionState === "denied") {
         // We don't have permission to use background sync,
         // You can try and prompt the user to turn iOS's background referesh back on
     }
