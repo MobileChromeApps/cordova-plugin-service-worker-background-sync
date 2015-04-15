@@ -41,7 +41,11 @@
 		<div>
 		    <label>Tag</label>
 		    <input id="OOTagInput" type="text" />
-		    <button id="OOBtn">Register</button>
+		    <div id="OOBtns">
+			<button id="OORegister">Register</button>
+			<button id="OOUnregister">Unregister All</button>
+			<button id="OOGet">Get Registrations</button>
+		    </div>
 		</div>
 		<h2>Periodic Sync Events</h2>
 		<div class="PSync">
@@ -69,9 +73,10 @@
 				<option value="avoid-draining">Avoid Draining</option>
 			    </select>
 			</div>
-			<div class="PBtnDiv">
-			    <button id="PBtn">Register</button>
-			    <button id="PUnregisterAll">Unregister All</button>
+			<div class="PBtns">
+			    <button id="PRegister">Register</button>
+			    <button id="PUnregister">Unregister All</button>
+			    <button id="PGet">Get Registrations</button>
 			</div>
 		    </div>
 		</div>
