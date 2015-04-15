@@ -133,8 +133,7 @@
 
 	it("sync.permissionState returns granted", function (done) {
 	    swreg.sync.permissionState().then(function (status) {
-		expect(status).toBeTruthy();
-		expect(status).toEqual(2);
+		expect(status).toEqual("granted");
 		done();
 	    },
 	    function (err) {
@@ -204,8 +203,7 @@
 
 	it("periodicSync.permissionState returns granted", function (done) {
 	    swreg.periodicSync.permissionState().then(function (status) {
-		expect(status).toBeTruthy();
-		expect(status).toEqual(2);
+		expect(status).toEqual("granted");
 		done();
 	    },
 	    function (err) {
