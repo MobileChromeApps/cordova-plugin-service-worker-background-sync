@@ -62,14 +62,8 @@ static CDVBackgroundSync *backgroundSync;
 -(void)restoreRegistrations
 {
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-    registrationList = [[defaults objectForKey:REGISTRATION_LIST_STORAGE_KEY] mutableCopy];
-    if (registrationList == nil) {
-        registrationList = [NSMutableDictionary dictionary];
-    }
-    periodicRegistrationList = [[defaults objectForKey:PERIODIC_REGISTRATION_LIST_STORAGE_KEY] mutableCopy];
-    if (periodicRegistrationList == nil) {
-        periodicRegistrationList = [NSMutableDictionary dictionary];
-    }
+    registrationList = [CDVBackgroundSync prepareStoredList:[defaults objectForKey:REGISTRATION_LIST_STORAGE_KEY]];
+    periodicRegistrationList = [CDVBackgroundSync prepareStoredList:[defaults objectForKey:PERIODIC_REGISTRATION_LIST_STORAGE_KEY]];
     if (([periodicRegistrationList count] + [registrationList count]) != 0) {
         [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalMinimum];
     }
@@ -132,6 +126,16 @@ static CDVBackgroundSync *backgroundSync;
     }
 }
 
++ (NSMutableDictionary*)prepareStoredList:(NSDictionary*)dictionary
+{
+    NSMutableDictionary *toPrepare = [NSMutableDictionary dictionaryWithDictionary:dictionary];
+    NSMutableDictionary *prepared = [NSMutableDictionary dictionary];
+    for (NSString *key in toPrepare) {
+        prepared[key] = [toPrepare[key] mutableCopy];
+    }
+    return prepared;
+}
+
 - (void)getMinPossiblePeriod:(CDVInvokedUrlCommand*)command
 {
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDouble:minPossiblePeriod];
@@ -166,11 +170,7 @@ static CDVBackgroundSync *backgroundSync;
     NSString *tag = registration[@"tag"];
     [CDVBackgroundSync validateTag:&tag];
     [self unregisterSyncByTag: tag fromRegistrationList:*list];
-    if (*list == nil) {
-        *list = [NSMutableDictionary dictionaryWithObject:registration forKey:tag];
-    } else {
-        (*list)[tag] = registration;
-    }
+    (*list)[tag] = [NSMutableDictionary dictionaryWithDictionary:registration];
     NSLog(@"Registering %@", tag);
     //Save the list
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
@@ -425,7 +425,7 @@ static CDVBackgroundSync *backgroundSync;
 }
 
 - (void)application:(UIApplication*)application performFetchWithCompletionHandler:(void (^)(UIBackgroundFetchResult))completionHandler{
-    self.completionHandler = completionHandler;
+    backgroundSync.completionHandler = completionHandler;
     [backgroundSync evaluateSyncs];
 }
 
@@ -489,7 +489,7 @@ static CDVBackgroundSync *backgroundSync;
 
 - (BOOL)isCharging
 {
-    return [[UIDevice currentDevice] batteryState] == UIDeviceBatteryStateCharging;
+    return [[UIDevice currentDevice] batteryState] == UIDeviceBatteryStateCharging || [[UIDevice currentDevice] batteryState] == UIDeviceBatteryStateFull;
 }
 
 - (void)batteryStateCallback
