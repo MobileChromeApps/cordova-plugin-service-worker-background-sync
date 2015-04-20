@@ -476,11 +476,11 @@
 	    messageCallback = function(event) {
 		periodicSyncCount++;
 		if (periodicSyncCount == 1) {
-		    expect(Date.now() - initTime).toBeLessThen(2221);
+		    expect(Date.now() - initTime).toBeLessThan(3100);
 		    initTime = Date.now();
 		}
 		if (periodicSyncCount > 1) {
-		    expect(Date.now() - initTime).toBeGreaterThan(2221);
+		    expect(Date.now() - initTime).toBeGreaterThan(3000);
 		    initTime = Date.now();
 		}
 		if (periodicSyncCount == 3) {
