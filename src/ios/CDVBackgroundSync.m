@@ -456,10 +456,11 @@ static CDVBackgroundSync *backgroundSync;
         if ([registration[@"_timestamp"] integerValue] + [registration[@"minPeriod"] integerValue] > [NSDate date].timeIntervalSince1970 * 1000) {
             continue;
         }
-        if ([registration[@"networkState"] integerValue] > [self getNetworkStatus]) {
+        NSInteger networkStatus = [self getNetworkStatus];
+        if (([registration[@"networkState"] isEqualToString:@"online"] && networkStatus < 1) || [registration[@"networkState"] isEqualToString:@"avoid-cellular"] && networkStatus < 2) {
             continue;
         }
-        if ([registration[@"powerState"] integerValue] && ![self isCharging]) {
+        if ([registration[@"powerState"] isEqualToString:@"avoid-draining"] && ![self isCharging]) {
             continue;
         }
         [self dispatchPeriodicSyncEvent:registration];
