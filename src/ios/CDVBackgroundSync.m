@@ -158,10 +158,14 @@ static CDVBackgroundSync *backgroundSync;
 - (void)setupServiceWorkerRegister
 {
     __weak CDVBackgroundSync* weakSelf = self;
-    serviceWorker.context[@"CDVBackgroundSync_register"] = ^(JSValue *registration, JSValue *syncType, JSValue *callback) {
+    serviceWorker.context[@"CDVBackgroundSync_register"] = ^(JSValue *registration, JSValue *syncType, JSValue *successCallback, JSValue *failureCallback) {
+        if ([[syncType toString] isEqualToString:@"periodic"] && [[registration toDictionary][@"minPeriod"] integerValue] < minPossiblePeriod) {
+            [failureCallback callWithArguments:nil];
+            return;
+        }
         NSMutableDictionary *list = [[syncType toString] isEqualToString:@"periodic"] ? weakSelf.periodicRegistrationList : weakSelf.registrationList;
         [weakSelf register:[registration toDictionary] inList:&list];
-        [callback callWithArguments:nil];
+        [successCallback callWithArguments:nil];
     };
 }
 

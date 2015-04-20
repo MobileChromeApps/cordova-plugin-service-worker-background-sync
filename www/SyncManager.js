@@ -17,50 +17,67 @@
  under the License.
  */
 
-var exec = require('cordova/exec');
-
 function SyncManager() {}
 
 SyncManager.prototype.register = function(syncRegistrationOptions) {
     return new Promise(function(resolve,reject) {
-	function success() {
+	function callback() {
 	    resolve(new SyncRegistration(syncRegistrationOptions));
 	}
-	// register does not dispatch an error
-	exec(success, null, "BackgroundSync", "cordovaRegister", [new SyncRegistration(syncRegistrationOptions)]);
+	if (typeof cordova !== 'undefined') {
+	    // register does not dispatch an error
+	    cordova.exec(callback, null, 'BackgroundSync', 'cordovaRegister', [new SyncRegistration(syncRegistrationOptions)]);
+	} else {
+	    CDVBackgroundSync_register(new SyncRegistration(syncRegistrationOptions), 'one-off', callback, null);
+	}
     });
 };
 
 SyncManager.prototype.getRegistration = function(tag) {
     return new Promise(function(resolve, reject) {
-	tag = tag || "";
+	tag = tag || '';
 	function success(reg) {
 	    resolve(new SyncRegistration(reg));
 	}
-	exec(success, reject, "BackgroundSync", "getRegistration", [tag]);
+	if (typeof cordova !== 'undefined') {
+	    cordova.exec(success, reject, 'BackgroundSync', 'getRegistration', [tag]);
+	} else {
+	    CDVBackgroundSync_getRegistration(tag, 'one-off', success, reject);
+	}
     });
 };
 
 SyncManager.prototype.getRegistrations = function() {
     return new Promise(function(resolve, reject) {
-	function success(regs) {
+	function callback(regs) {
 	    var newRegs = regs.map(function (reg) { return new SyncRegistration(reg); });
 	    resolve(newRegs);
 	}
-	// getRegistrations does not fail, it returns an empty array when there are no registrations
-	exec(success, null, "BackgroundSync", "getRegistrations", []);
+	if (typeof cordova !== 'undefined') {
+	    // getRegistrations does not fail, it returns an empty array when there are no registrations
+	    cordova.exec(callback, null, 'BackgroundSync', 'getRegistrations', []);
+	} else {
+	    CDVBackgroundSync_getRegistrations('one-off', callback);
+	}
     });
 };
 
 SyncManager.prototype.permissionState = function() {
     return new Promise(function(resolve, reject) {
-	exec(resolve, null, "BackgroundSync", "hasPermission", []);
+	if (typeof cordova !== 'undefined') {
+	    cordova.exec(resolve, null, 'BackgroundSync', 'hasPermission', []);
+	} else {
+	    //TODO: service worker equivalent
+	}
     });
 };
 
-navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
-    serviceWorkerRegistration.sync = new SyncManager();
-    exec(null, null, "BackgroundSync", "setupBackgroundSync", []);
-});
- 
-module.exports = SyncManager;
+if (typeof cordova !== 'undefined') {
+    navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
+	serviceWorkerRegistration.sync = new SyncManager();
+	cordova.exec(null, null, 'BackgroundSync', 'setupBackgroundSync', []);
+    });
+    module.exports = SyncManager;
+} else {
+    self.sync = new SyncManager();
+}

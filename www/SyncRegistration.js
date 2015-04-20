@@ -17,21 +17,22 @@
  under the License.
  */
 
-var exec = require('cordova/exec');
-
 function SyncRegistration(options) {
     options = options || {};
-    this.tag = options.tag || "";
+    this.tag = options.tag || '';
 }
 
 SyncRegistration.prototype.unregister = function() {
     var tag = this.tag;
     return new Promise(function(resolve, reject) {
-	function success(didUnregister) {
-	    resolve(!!didUnregister);
+	if (typeof cordova !== 'undefined') {
+	    cordova.exec(resolve, null, 'BackgroundSync', 'unregister', [tag]);
+	} else {
+	    CDVBackgroundSync_unregisterSync(tag, 'one-off');
 	}
-	exec(success, null, "BackgroundSync", "unregister", [tag]);
     });
 };
 
-module.exports = SyncRegistration;
+if (typeof cordova !== 'undefined') {
+    module.exports = SyncRegistration;
+}

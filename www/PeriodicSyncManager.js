@@ -17,22 +17,21 @@
  under the License.
  */
 
-var exec = require('cordova/exec');
-var serviceWorker = require('org.apache.cordova.serviceworker.ServiceWorker');
-
 function PeriodicSyncManager() {
     var that = this;
-    exec(function(data) { that.minPossiblePeriod = data; }, null, "BackgroundSync", "getMinPossiblePeriod", []);
+    if (typeof cordova !== 'undefined') {
+	cordova.exec(function(data) { that.minPossiblePeriod = data; }, null, 'BackgroundSync', 'getMinPossiblePeriod', []);
+    }
 }
 
 function strToEnum(str) {
-    if (str === "any" || str === "auto" || str === "default") {
+    if (str === 'any' || str === 'auto' || str === 'default') {
 	return 0;
     }
-    if (str === "denied" || str === "avoid-cellular" || str === "avoid-draining") {
+    if (str === 'denied' || str === 'avoid-cellular' || str === 'avoid-draining') {
 	return 1;
     }
-    if (str === "granted" || str === "online") {
+    if (str === 'granted' || str === 'online') {
 	return 2;
     }
     return str;
@@ -46,18 +45,26 @@ PeriodicSyncManager.prototype.register = function(syncRegistrationOptions) {
 	function success() {
 	    resolve(new PeriodicSyncRegistration(syncRegistrationOptions));
 	}
-	// register dispatches an error when minPeriod is less than minPossiblePeriod
-	exec(success, reject, "BackgroundSync", "cordovaRegister", [new PeriodicSyncRegistration(syncRegistrationOptions), "periodic"]);
+	if (typeof cordova !== 'undefined') {
+	    // register dispatches an error when minPeriod is less than minPossiblePeriod
+	    cordova.exec(success, reject, 'BackgroundSync', 'cordovaRegister', [new PeriodicSyncRegistration(syncRegistrationOptions), 'periodic']);
+	} else {
+	    CDVBackgroundSync_register(new PeriodicSyncRegistration(syncRegistrationOptions), 'periodic', success, reject);
+	}
     });
 };
 
 PeriodicSyncManager.prototype.getRegistration = function(tag) {
     return new Promise(function(resolve, reject) {
-	tag = tag || "";
+	tag = tag || '';
 	function success(reg) {
 	    resolve(new PeriodicSyncRegistration(reg));
 	}
-	exec(success, reject, "BackgroundSync", "getRegistration", [tag, "periodic"]);
+	if (typeof cordova !== 'undefined') {
+	    cordova.exec(success, reject, 'BackgroundSync', 'getRegistration', [tag, 'periodic']);
+	} else {
+	    CDVBackgroundSync_getRegistration(tag, 'periodic', success, reject);
+	}
     });
 };
 
@@ -67,19 +74,30 @@ PeriodicSyncManager.prototype.getRegistrations = function() {
 	    var newRegs = regs.map(function (reg) { return new PeriodicSyncRegistration(reg); });
 	    resolve(newRegs);
 	}
-	// getRegistrations does not fail, it returns an empty array when there are no registrations
-	exec(callback, null, "BackgroundSync", "getRegistrations", ["periodic"]);
+	if (typeof cordova !== 'undefined') {
+	    // getRegistrations does not fail, it returns an empty array when there are no registrations
+	    cordova.exec(callback, null, 'BackgroundSync', 'getRegistrations', ['periodic']);
+	} else {
+	    CDVBackgroundSync_getRegistrations('periodic', callback);
+	}
     });
 };
 
 PeriodicSyncManager.prototype.permissionState = function() {
     return new Promise(function(resolve, reject) {
-	exec(resolve, null, "BackgroundSync", "hasPermission", []);
+	if (typeof cordova !== 'undefined') {
+	    cordova.exec(resolve, null, 'BackgroundSync', 'hasPermission', []);
+	} else {
+	    //TODO: service worker equivalent
+	}
     });
 };
 
-navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
-    serviceWorkerRegistration.periodicSync = new PeriodicSyncManager();
-});
- 
-module.exports = PeriodicSyncManager;
+if (typeof cordova !== 'undefined') {
+    navigator.serviceWorker.ready.then(function(serviceWorkerRegistration) {
+	serviceWorkerRegistration.periodicSync = new PeriodicSyncManager();
+    });
+    module.exports = PeriodicSyncManager;
+} else {
+    self.periodicSync = new PeriodicSyncManager();
+}

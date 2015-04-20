@@ -47,7 +47,11 @@
 
     <!-- Assets for use by service worker -->
     <asset src="www/sw_assets/syncevents.js" target="sw_assets/syncevents.js" />
-    <asset src="www/sw_assets/syncmanagerasset.js" target="sw_assets/syncmanagerasset.js" />
+    <asset src="www/SyncManager.js" target="sw_assets/SyncManager.js" />
+    <asset src="www/PeriodicSyncManager.js" target="sw_assets/PeriodicSyncManager.js" />
+    <asset src="www/SyncRegistration.js" target="sw_assets/SyncRegistration.js" />
+    <asset src="www/PeriodicSyncRegistration.js" target="sw_assets/PeriodicSyncRegistration.js" />
+    <asset src="www/Enums.js" target="sw_assets/Enums.js" />
 
     <platform name="ios">
 	<config-file target="config.xml" parent="/*">

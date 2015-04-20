@@ -38,8 +38,10 @@ Object.freeze(SyncPermissionState);
 Object.freeze(SyncNetworkState);
 Object.freeze(SyncPowerState);
 
-module.exports = {
-    SyncPermissionState: SyncPermissionState,
-    SyncNetworkState: SyncNetworkState,
-    SyncPowerState: SyncPowerState
-};
+if (typeof cordova !== 'undefined') {
+    module.exports = {
+	SyncPermissionState: SyncPermissionState,
+	SyncNetworkState: SyncNetworkState,
+	SyncPowerState: SyncPowerState
+    };
+}

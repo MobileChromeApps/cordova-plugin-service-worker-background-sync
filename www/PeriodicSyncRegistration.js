@@ -17,11 +17,9 @@
  under the License.
  */
 
-var exec = require('cordova/exec');
-
 function PeriodicSyncRegistration(options) {
     options = options || {};
-    this.tag = options.tag || "";
+    this.tag = options.tag || '';
     this.minPeriod = options.minPeriod || 0;
     this.networkState = SyncNetworkState.online;
     if (typeof options.networkState != 'undefined') { //This is necessary since the default is nonzero - would overwrite custom 0 value with ||
@@ -34,11 +32,15 @@ function PeriodicSyncRegistration(options) {
 PeriodicSyncRegistration.prototype.unregister = function() {
     var tag = this.tag;
     return new Promise(function(resolve, reject) {
-	function success(didUnregister) {
-	    resolve(!!didUnregister);
+	if (typeof cordova !== 'undefined') {
+	    cordova.exec(resolve, null, 'BackgroundSync', 'unregister', [tag, 'periodic']);
+	}  else {
+	    CDVBackgroundSync_unregisterSync(tag, 'periodic');
+	    resolve();
 	}
-	exec(success, null, "BackgroundSync", "unregister", [tag, "periodic"]);
     });
 };
 
-module.exports = PeriodicSyncRegistration;
+if (typeof cordova !== 'undefined') {
+    module.exports = PeriodicSyncRegistration;
+}

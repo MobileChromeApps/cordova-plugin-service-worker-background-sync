@@ -31,14 +31,6 @@ Object.defineProperty(this, 'onperiodicsync', {
     set: eventSetter('periodicsync')
 });
 
-function SyncRegistration() {}
-
-SyncRegistration.prototype.unregister = function() {
-    CDVBackgroundSync_unregisterSync(this.tag, "one-off");
-};
-
-function PeriodicSyncRegistration() {}
-
 function SyncEvent() {
     ExtendableEvent.call(this, 'sync');
     this.registration = new SyncRegistration();
