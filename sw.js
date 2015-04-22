@@ -20,3 +20,7 @@ this.onperiodicsync = function(event) {
 	resolve(true);
     }));
 };
+
+self.oninstall = function(event) {
+    console.log(event);
+};
