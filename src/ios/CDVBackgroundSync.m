@@ -64,7 +64,7 @@ static CDVBackgroundSync *backgroundSync;
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     registrationList = [CDVBackgroundSync prepareStoredList:[defaults objectForKey:REGISTRATION_LIST_STORAGE_KEY]];
     periodicRegistrationList = [CDVBackgroundSync prepareStoredList:[defaults objectForKey:PERIODIC_REGISTRATION_LIST_STORAGE_KEY]];
-    if (([periodicRegistrationList count] + [registrationList count]) != 0) {
+    if ([periodicRegistrationList count] + [registrationList count]) {
         [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalMinimum];
     }
     [self scheduleSync];
@@ -111,7 +111,7 @@ static CDVBackgroundSync *backgroundSync;
 {
     self.syncCheckCallback = command.callbackId;
     CDVPluginResult *result;
-    if ([registrationList count] != 0) {
+    if ([registrationList count]) {
         result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"notIdle"];
         [result setKeepCallback:@(YES)];
         [self.commandDelegate sendPluginResult:result callbackId:syncCheckCallback];
@@ -207,7 +207,7 @@ static CDVBackgroundSync *backgroundSync;
     __weak CDVBackgroundSync* weakSelf = self;
     serviceWorker.context[@"CDVBackgroundSync_getRegistrations"] = ^(JSValue *syncType, JSValue *callback) {
         NSMutableDictionary *list = [[syncType toString] isEqualToString:@"periodic"] ? weakSelf.periodicRegistrationList : weakSelf.registrationList;
-        if (list != nil && [list count] != 0) {
+        if (list != nil && [list count]) {
             [callback callWithArguments:@[[list allValues]]];
         } else {
             [callback callWithArguments:@[@[]]];
@@ -309,7 +309,10 @@ static CDVBackgroundSync *backgroundSync;
                 NSLog(@"Failed to get data");
                 fetchResult = UIBackgroundFetchResultFailed;
             default:
-                //TODO: Create Pushback
+                // Push back the failed registration
+                if (![weakSelf.periodicRegistrationList count]) {
+                    [weakSelf performSelector:@selector(foregroundSync) withObject:nil afterDelay:pushback/1000];
+                }
                 break;
         }
         if (completedSyncs == dispatchedSyncs) {
@@ -319,7 +322,7 @@ static CDVBackgroundSync *backgroundSync;
             fetchResult = UIBackgroundFetchResultNoData;
             
             //If we have no more registrations left, turn off background fetch
-            if ([weakSelf.registrationList count] == 0) {
+            if (![weakSelf.registrationList count] && ![weakSelf.periodicRegistrationList count]) {
                 [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalNever];
             }
             if (weakSelf.completionHandler != nil) {
@@ -371,7 +374,7 @@ static CDVBackgroundSync *backgroundSync;
             fetchResult = UIBackgroundFetchResultNoData;
             
             //If we have no more registrations left, turn off background fetch
-            if ([weakSelf.registrationList count] == 0) {
+            if (![weakSelf.registrationList count] && ![weakSelf.periodicRegistrationList count]) {
                 [[UIApplication sharedApplication] setMinimumBackgroundFetchInterval:UIApplicationBackgroundFetchIntervalNever];
             }
             [weakSelf scheduleSync];
@@ -383,7 +386,6 @@ static CDVBackgroundSync *backgroundSync;
             }
         }
     };
-
 }
 
 - (void)networkCheckCallback
@@ -411,11 +413,10 @@ static CDVBackgroundSync *backgroundSync;
         }
         return;
     }
-    
     NSLog(@"Fetching");
     if ([self getNetworkStatus]) {
         [self dispatchSyncEvents];
-    } else {
+    } else if ([registrationList count]) {
         fetchResult = UIBackgroundFetchResultFailed;
     }
     [self evaluatePeriodicSyncRegistrations];
@@ -528,7 +529,7 @@ static CDVBackgroundSync *backgroundSync;
 
 - (void)scheduleSync
 {
-    if (!periodicRegistrationList || [periodicRegistrationList count] == 0) {
+    if (!periodicRegistrationList || ![periodicRegistrationList count]) {
         return;
     }
     double delay = 0;
