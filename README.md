@@ -5,7 +5,7 @@ Background Sync enables service worker applications to perform actions when cert
 Supported Platforms: iOS
 
 ##Installation
-To add this plugin to your project, use the following command in your project directory
+To add this plugin to your project, you can use the following cordova cli command
 ```
 cordova plugin add https://github.com/MobileChromeApps/cordova-plugin-background-sync.git
 ```
@@ -19,6 +19,21 @@ To remove this plugin, use the following command
 ```
 cordova plugin rm cordova-plugin-background-sync
 ```
+
+Note: For background sync to work properly, you must first install the cordova [service worker plugin](https://github.com/MobileChromeApps/cordova-plugin-service-worker) before installing the background sync plugin.
+
+##Preferences
+You can specify custom plugin preferences in your project's config.xml. This is similar to how you specify your service worker script.
+
+```xml
+<preference name="minperiod" value="2000"></preference>         // Default: 1 hour
+<preference name="syncpushback" value="1200"></preference>      // Default: 5 minutes
+<preference name="syncmaxwaittime" value="5000"></preference>   // Default: 2 hours
+```
+All three times are given in miliseconds.
+- `minperiod` specifies the minimum amount of time between repetitions of a periodic sync. Registration of a periodic sync will fail if the `minPeriod` property of the registration is less than this preference value. In the background sync spec, this value is known as `minPossiblePeriod` and is accessible in JavaScript as a property of the `PeriodicSyncManager`.
+- `syncpushback` is the minimum amount of time a viable one-off or periodic sync will wait after failing before being reassessed.
+- `syncmaxwaittime` is the maximum amount of time past the expiration of its minimum period that a periodic sync event will wait to be batched with other periodic sync events. This can prevent a periodic sync meant to happen daily from waiting for a periodic sync scheduled to take place weekly.
 
 ##Examples
 Here are a few examples that outline the basic usage of background sync.
