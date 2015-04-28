@@ -26,7 +26,7 @@
     <license>Apache 2.0</license>
     <keywords>cordova,backgroundsync,serviceworker</keywords>
 
-    <dependency id="cordova-plugin-service-worker" url="https://github.com/MobileChromeApps/cordova-plugin-serviceworker.git" />
+    <dependency id="cordova-plugin-service-worker" url="https://github.com/MobileChromeApps/cordova-plugin-service-worker.git" />
     <dependency id="cordova-plugin-network-information" url="https://github.com/apache/cordova-plugin-network-information.git" />
 
     <js-module src="www/SyncManager.js" name="SyncManager">
