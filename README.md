@@ -161,7 +161,7 @@ To see this plugin in action, execute the CreateBackgroundSyncDemo script in a d
 cordova create BackgroundSyncDemo io.cordova.backgroundsyncdemo BackgroundSyncDemo
 cd BackgroundSyncDemo
 cordova platform add ios
-cordova plugin add cordova-plugin-serviceworker
+cordova plugin add cordova-plugin-service-worker
 cordova plugin add cordova-plugin-background-sync
 cordova plugin add cordova-plugin-notification
 mv 'plugins/cordova-plugin-background-sync/sample/config.xml' 'config.xml'
