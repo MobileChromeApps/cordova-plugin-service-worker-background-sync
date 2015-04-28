@@ -7,8 +7,14 @@ Supported Platforms: iOS
 ##Installation
 To add this plugin to your project, use the following command in your project directory
 ```
-cordova plugin add https://github.com/imintz/cordova-plugin-background-sync.git
+cordova plugin add https://github.com/MobileChromeApps/cordova-plugin-background-sync.git
 ```
+
+or, to install from npm:
+```
+cordova plugin add cordova-plugin-background-sync
+```
+
 To remove this plugin, use the following command
 ```
 cordova plugin rm cordova-plugin-background-sync
@@ -155,9 +161,9 @@ To see this plugin in action, execute the CreateBackgroundSyncDemo script in a d
 cordova create BackgroundSyncDemo io.cordova.backgroundsyncdemo BackgroundSyncDemo
 cd BackgroundSyncDemo
 cordova platform add ios
-cordova plugin add https://github.com/MobileChromeApps/cordova-plugin-serviceworker.git
-cordova plugin add https://github.com/imintz/cordova-plugin-background-sync.git
-cordova plugin add https://github.com/imintz/cordova-plugin-notification.git
+cordova plugin add cordova-plugin-serviceworker
+cordova plugin add cordova-plugin-background-sync
+cordova plugin add cordova-plugin-notification
 mv 'plugins/cordova-plugin-background-sync/sample/config.xml' 'config.xml'
 mv 'plugins/cordova-plugin-background-sync/sample/www/sw.js' 'www/sw.js'
 mv 'plugins/cordova-plugin-background-sync/sample/www/index.html' 'www/index.html'
