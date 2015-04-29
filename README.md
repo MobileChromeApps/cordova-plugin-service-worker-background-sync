@@ -186,3 +186,6 @@ mv 'plugins/cordova-plugin-background-sync/sample/www/js/index.js' 'www/js/index
 mv 'plugins/cordova-plugin-background-sync/sample/www/css/index.css' 'www/css/index.css'
 cordova prepare
 ```
+
+## 1.0.0 (April 29, 2015)
+* Initial release

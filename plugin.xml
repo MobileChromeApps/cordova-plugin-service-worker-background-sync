@@ -20,7 +20,7 @@
 
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
 	   id="cordova-plugin-background-sync"
-      version="0.0.2-dev">
+      version="1.0.0">
     <name>BackgroundSync</name>
     <description>BackgroundSync Plugin</description>
     <license>Apache 2.0</license>
