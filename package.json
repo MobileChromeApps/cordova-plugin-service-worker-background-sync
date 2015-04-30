@@ -1,6 +1,6 @@
 {
   "name": "cordova-plugin-service-worker-background-sync",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Background Sync Plugin",
   "cordova": {
     "id": "cordova-plugin-service-worker-background-sync",
