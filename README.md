@@ -7,17 +7,17 @@ Supported Platforms: iOS
 ## Installation
 To add this plugin to your project, you can use the following cordova cli command
 ```
-cordova plugin add https://github.com/MobileChromeApps/cordova-plugin-background-sync.git
+cordova plugin add https://github.com/MobileChromeApps/cordova-plugin-service-worker-background-sync.git
 ```
 
 or, to install from npm:
 ```
-cordova plugin add cordova-plugin-background-sync
+cordova plugin add cordova-plugin-service-worker-background-sync
 ```
 
 To remove this plugin, use the following command
 ```
-cordova plugin rm cordova-plugin-background-sync
+cordova plugin rm cordova-plugin-service-worker-background-sync
 ```
 
 Note: For background sync to work properly, you must first install the cordova [service worker plugin](https://github.com/MobileChromeApps/cordova-plugin-service-worker) before installing the background sync plugin.
@@ -177,13 +177,12 @@ cordova create BackgroundSyncDemo io.cordova.backgroundsyncdemo BackgroundSyncDe
 cd BackgroundSyncDemo
 cordova platform add ios
 cordova plugin add cordova-plugin-service-worker
-cordova plugin add cordova-plugin-background-sync
-cordova plugin add cordova-plugin-notification
-mv 'plugins/cordova-plugin-background-sync/sample/config.xml' 'config.xml'
-mv 'plugins/cordova-plugin-background-sync/sample/www/sw.js' 'www/sw.js'
-mv 'plugins/cordova-plugin-background-sync/sample/www/index.html' 'www/index.html'
-mv 'plugins/cordova-plugin-background-sync/sample/www/js/index.js' 'www/js/index.js'
-mv 'plugins/cordova-plugin-background-sync/sample/www/css/index.css' 'www/css/index.css'
+cordova plugin add cordova-plugin-service-worker-background-sync
+mv 'plugins/cordova-plugin-service-worker-background-sync/sample/config.xml' 'config.xml'
+mv 'plugins/cordova-plugin-service-worker-background-sync/sample/www/sw.js' 'www/sw.js'
+mv 'plugins/cordova-plugin-service-worker-background-sync/sample/www/index.html' 'www/index.html'
+mv 'plugins/cordova-plugin-service-worker-background-sync/sample/www/js/index.js' 'www/js/index.js'
+mv 'plugins/cordova-plugin-service-worker-background-sync/sample/www/css/index.css' 'www/css/index.css'
 cordova prepare
 ```
 

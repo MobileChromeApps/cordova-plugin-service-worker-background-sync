@@ -19,7 +19,7 @@
 -->
 
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
-    id="cordova-plugin-background-sync-tests"
+    id="cordova-plugin-service-worker-background-sync-tests"
     version="0.0.1-dev">
     <name>Cordova Background Sync Plugin Tests</name>
     <license>Apache 2.0</license>
