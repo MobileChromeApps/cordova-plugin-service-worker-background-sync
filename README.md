@@ -186,5 +186,8 @@ mv 'plugins/cordova-plugin-service-worker-background-sync/sample/www/css/index.c
 cordova prepare
 ```
 
+## 1.0.1 (April 30, 2015)
+* Updated installation instructions
+
 ## 1.0.0 (April 29, 2015)
 * Initial release
