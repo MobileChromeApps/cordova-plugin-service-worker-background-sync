@@ -1,28 +1,29 @@
 {
-  "name": "cordova-plugin-background-sync",
+  "name": "cordova-plugin-service-worker-background-sync",
   "version": "1.0.0",
-  "description": "BackgroundSync Plugin",
+  "description": "Background Sync Plugin",
   "cordova": {
-    "id": "cordova-plugin-background-sync",
+    "id": "cordova-plugin-service-worker-background-sync",
     "platforms": [
       "ios"
     ]
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MobileChromeApps/cordova-plugin-background-sync.git"
+    "url": "git+https://github.com/MobileChromeApps/cordova-plugin-service-worker-background-sync.git"
   },
   "keywords": [
     "cordova",
     "backgroundsync",
-    "serviceworker",
+    "service",
+    "worker",
     "ecosystem:cordova",
     "cordova-ios"
   ],
   "author": "The Chrome Team",
   "license": "Apache 2.0",
   "bugs": {
-    "url": "https://github.com/MobileChromeApps/cordova-plugin-background-sync/issues"
+    "url": "https://github.com/MobileChromeApps/cordova-plugin-service-worker-background-sync/issues"
   },
-  "homepage": "https://github.com/MobileChromeApps/cordova-plugin-background-sync#readme"
+  "homepage": "https://github.com/MobileChromeApps/cordova-plugin-service-worker-background-sync#readme"
 }

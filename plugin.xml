@@ -19,15 +19,15 @@
  -->
 
 <plugin xmlns="http://apache.org/cordova/ns/plugins/1.0"
-	   id="cordova-plugin-background-sync"
+	   id="cordova-plugin-service-worker-background-sync"
       version="1.0.0">
     <name>BackgroundSync</name>
     <description>BackgroundSync Plugin</description>
     <license>Apache 2.0</license>
-    <keywords>cordova,backgroundsync,serviceworker</keywords>
+    <keywords>cordova,backgroundsync,service,worker</keywords>
 
-    <dependency id="cordova-plugin-service-worker" url="https://github.com/MobileChromeApps/cordova-plugin-service-worker.git" />
-    <dependency id="cordova-plugin-network-information" url="https://github.com/apache/cordova-plugin-network-information.git" />
+    <dependency id="cordova-plugin-service-worker" />
+    <dependency id="cordova-plugin-network-information" />
 
     <js-module src="www/SyncManager.js" name="SyncManager">
 	<clobbers target="SyncManager" />

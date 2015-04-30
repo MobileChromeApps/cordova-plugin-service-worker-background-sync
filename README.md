@@ -1,10 +1,10 @@
-#Cordova Background Sync
+# Cordova Background Sync
 Background Sync enables service worker applications to perform actions when certain conditions are achieved. For example, if you want your app to delay an action until a device has a wifi connection, you can use background sync to accomplish this. Here is an [explainer document](https://github.com/slightlyoff/BackgroundSync/blob/master/explainer.md) that goes into more detail about the purpose and usage of background sync.
 
-##Plugin Status
+## Plugin Status
 Supported Platforms: iOS
 
-##Installation
+## Installation
 To add this plugin to your project, you can use the following cordova cli command
 ```
 cordova plugin add https://github.com/MobileChromeApps/cordova-plugin-background-sync.git
@@ -22,7 +22,7 @@ cordova plugin rm cordova-plugin-background-sync
 
 Note: For background sync to work properly, you must first install the cordova [service worker plugin](https://github.com/MobileChromeApps/cordova-plugin-service-worker) before installing the background sync plugin.
 
-##Preferences
+## Preferences
 You can specify custom plugin preferences in your project's config.xml. This is similar to how you specify your service worker script.
 
 ```xml
@@ -35,15 +35,15 @@ All three times are given in miliseconds.
 - `syncpushback` is the minimum amount of time a viable one-off or periodic sync will wait after failing before being reassessed.
 - `syncmaxwaittime` is the maximum amount of time past the expiration of its minimum period that a periodic sync event will wait to be batched with other periodic sync events. This can prevent a periodic sync meant to happen daily from waiting for a periodic sync scheduled to take place weekly.
 
-##Examples
+## Examples
 Here are a few examples that outline the basic usage of background sync.
-###Getting Service Worker Registration
+### Getting Service Worker Registration
 ```javascript
 navigator.serviceWorker.ready.then(function (serviceWorkerRegistration) {  
     ... //Most of your background sync related code should go in here
 }
 ```
-###Checking Permission
+### Checking Permission
 In the iOS implementation of background sync, permission defaults to granted. However, the user can disable background refresh capabilities manually. If permission is denied, sync events can still be executed in the foreground, but no sync events will be executed while the app is idle or in the background.
 ```javascript
 serviceWorkerRegistration.sync.permissionState().then(function(permissionState) {
@@ -56,10 +56,10 @@ serviceWorkerRegistration.sync.permissionState().then(function(permissionState) 
     }
 });
 ```
-###Registering Sync Events
+### Registering Sync Events
 You can register sync events from both the page and the service worker context. Check out [this explainer](https://github.com/slightlyoff/BackgroundSync/blob/master/explainer.md) for details about the registration options.
 
-####For One-off Sync Events
+#### For One-off Sync Events
 ```javascript
 serviceWorkerRegistration.sync.register(
 {
@@ -71,7 +71,7 @@ function() { // Failure
      // There was a problem while registering a sync event
 });
 ```
-####For Periodic Sync Events
+#### For Periodic Sync Events
 ```javascript
 serviceWorkerRegistration.periodicSync.register(
 {
@@ -87,7 +87,7 @@ function() { // Failure
 });
 ```
 
-###Looking Up Sync Event Registrations
+### Looking Up Sync Event Registrations
 ```javascript
 // Get all sync event registrations
 serviceWorkerRegistration.sync.getRegistrations().then(function(regs){
@@ -130,7 +130,7 @@ function(err) {
     console.log(err);
 });
 ```
-###Handling Sync Events
+### Handling Sync Events
 All sync events will be dispatched to the same ```onsync``` event handler in your service worker script. All periodic sync events will be dispatched to the same ```onperiodicsync``` event handler. These event handlers are passed an event object which has a registration property that contains all of the registration options of the sync registration that triggered this event.
 #### One-off Sync Event
 ```javascript
@@ -170,7 +170,7 @@ When you need to perform an asynchronous action inside the sync event handler, u
 
 iOS limits background execution runtime to 30 seconds. So even when using ```event.waitUntil``` you should be aware that your process will be terminated if it takes too long.
 
-##Sample App
+## Sample App
 To see this plugin in action, execute the CreateBackgroundSyncDemo script in a directory of your choice or run the following commands to create the sample app
 ```bash
 cordova create BackgroundSyncDemo io.cordova.backgroundsyncdemo BackgroundSyncDemo
