@@ -1,6 +1,6 @@
 function registerServiceWorker() {
     if (navigator.serviceWorker) {
-      navigator.serviceWorker.register('sw.js',{scope:'/cordova-plugin-background-sync/'}).then(function(registration) {
+      navigator.serviceWorker.register('sw.js',{scope:'/cordova-plugin-service-worker-background-sync/'}).then(function(registration) {
 	// Registration was successful
 	console.log('ServiceWorker registration successful with scope: ', registration.scope);
 	document.dispatchEvent(new Event('deviceready'));
