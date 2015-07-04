@@ -1,8 +1,17 @@
+function report(message) {
+  return clients.matchAll().then(
+    function(clientList) {
+      for (var client of clientList) {
+        client.postMessage(message);
+      }
+    });
+}
+
 function reportOneShot(registration) {
   var message = {};
   message.tag = registration.tag;
   message.type = "one-off";
-  client.postMessage(message);
+  return report(message);
 }
 
 function reportPeriodic(registration) {
@@ -12,17 +21,14 @@ function reportPeriodic(registration) {
   message.networkState = registration.networkState;
   message.powerState = registration.powerState;
   message.type = "periodic";
-  client.postMessage(message);
+  return report(message);
 }
 
 this.onsync = function(event) {
   // Do we have ExtendableEvent support yet?
   if (event.WaitUntil) {
     // Yes! Do this asynchronously.
-    event.waitUntil(new Promise(function(resolve, reject) {
-      reportOneShot(event.registration);
-      resolve(true);
-    }));
+    event.waitUntil(reportOneShot(event.registration));
   } else {
     // No :( Just report the event synchronously.
     reportOneShot(event.registration);
@@ -33,10 +39,7 @@ this.onperiodicsync = function(event) {
   // Do we have ExtendableEvent support yet?
   if (event.WaitUntil) {
     // Yes! Do this asynchronously.
-    event.waitUntil(new Promise(function(resolve, reject) {
-      reportPeriodic(event.registration);
-      resolve(true);
-    }));
+    event.waitUntil(reportPeriodic(event.registration));
   } else {
     // No :( Just report the event synchronously.
     reportPeriodic(event.registration);
