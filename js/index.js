@@ -45,6 +45,17 @@ var app = {
 	    document.getElementById("PUnregister").onclick = function () { unregister("P"); };
 	    document.getElementById("PGet").onclick = function () { getRegistrations("P"); };
 	    window.addEventListener('message', function (event) {
+                console.log("Message received by window");
+		if (event.data.type === "one-off") {
+		    console.log("Sync Event " + event.data.tag);
+		    console.log("Unregistering " + event.data.tag);
+		} else {
+		    console.log("Periodic Sync Event " + event.data.tag);
+		    console.log("Reregistering " + event.data.tag + " with minPeriod " + event.data.minPeriod);
+		}
+	    });
+	    navigator.serviceWorker.addEventListener('message', function (event) {
+                console.log("Message received by navigator.serviceWorker");
 		if (event.data.type === "one-off") {
 		    console.log("Sync Event " + event.data.tag);
 		    console.log("Unregistering " + event.data.tag);
